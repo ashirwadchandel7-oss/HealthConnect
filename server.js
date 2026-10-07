@@ -46,6 +46,41 @@ const mailer =
         },
       })
     : null;
+const brevoApiKey = process.env.BREVO_API_KEY || '';
+
+async function sendBrevoApiEmail({ email, purpose, code, ttl }) {
+  const subject = purpose === 'verify'
+    ? 'Verify your HealthConnect Bharat account'
+    : purpose === 'profile'
+      ? 'Confirm your doctor profile changes'
+      : 'Reset your HealthConnect Bharat password';
+  const textContent = `${purpose === 'profile' ? 'Confirm your doctor profile changes with this code' : 'Your verification code is'}: ${code}. It expires in ${ttl} minutes. If you did not request this, ignore this email.`;
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'api-key': brevoApiKey,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: {
+        email: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
+        name: process.env.SMTP_FROM_NAME || 'HealthConnect Bharat',
+      },
+      to: [{ email }],
+      subject,
+      textContent,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.messageId) {
+    const error = new Error(result.message || `Brevo API returned HTTP ${response.status}.`);
+    error.code = `BREVO_API_${response.status}`;
+    throw error;
+  }
+  return { delivery: 'api', messageId: result.messageId };
+}
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -344,7 +379,7 @@ function render(req, res, view, extra = {}) {
     doctorQualifications,
     doctorSpecialties,
     otpTtlMinutes: Math.max(2, Number(process.env.OTP_TTL_MINUTES || 10)),
-    localOtpMode: !mailer && !isProd,
+    localOtpMode: !mailer && !brevoApiKey && !isProd,
     ...extra,
   });
 }
@@ -375,8 +410,8 @@ async function sendCode(req, email, purpose) {
   const ttl = Math.max(2, Number(process.env.OTP_TTL_MINUTES || 10));
   const cooldown = otpCooldownSeconds(purpose);
 
-  if (!mailer && isProd) {
-    throw new Error('Email delivery is not configured. Add the Brevo SMTP settings before using account email flows.');
+  if (!mailer && !brevoApiKey && isProd) {
+    throw new Error('Email delivery is not configured. Add Brevo SMTP credentials or BREVO_API_KEY before using account email flows.');
   }
 
   const [recent] = await pool.execute(
@@ -406,29 +441,34 @@ async function sendCode(req, email, purpose) {
     [email, purpose, hash, ttl]
   );
 
-  if (mailer) {
+  if (mailer || brevoApiKey) {
     try {
-      const delivery = await mailer.sendMail({
-        from: `${process.env.SMTP_FROM_NAME || 'HealthConnect Bharat'} <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
-        to: email,
-        subject: purpose === 'verify'
-          ? 'Verify your HealthConnect Bharat account'
-          : purpose === 'profile'
-            ? 'Confirm your doctor profile changes'
-            : 'Reset your HealthConnect Bharat password',
-        text: `${purpose === 'profile' ? 'Confirm your doctor profile changes with this code' : 'Your verification code is'}: ${code}. It expires in ${ttl} minutes. If you did not request this, ignore this email.`,
-      });
-      const accepted = Array.isArray(delivery.accepted)
-        && delivery.accepted.some((address) => String(address).toLowerCase() === email);
-      if (!accepted) {
-        const error = new Error('SMTP server did not accept this recipient address.');
-        error.code = 'SMTP_RECIPIENT_REJECTED';
-        throw error;
+      let delivery;
+      if (brevoApiKey) {
+        delivery = await sendBrevoApiEmail({ email, purpose, code, ttl });
+      } else {
+        delivery = await mailer.sendMail({
+          from: `${process.env.SMTP_FROM_NAME || 'HealthConnect Bharat'} <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+          to: email,
+          subject: purpose === 'verify'
+            ? 'Verify your HealthConnect Bharat account'
+            : purpose === 'profile'
+              ? 'Confirm your doctor profile changes'
+              : 'Reset your HealthConnect Bharat password',
+          text: `${purpose === 'profile' ? 'Confirm your doctor profile changes with this code' : 'Your verification code is'}: ${code}. It expires in ${ttl} minutes. If you did not request this, ignore this email.`,
+        });
+        const accepted = Array.isArray(delivery.accepted)
+          && delivery.accepted.some((address) => String(address).toLowerCase() === email);
+        if (!accepted) {
+          const error = new Error('SMTP server did not accept this recipient address.');
+          error.code = 'SMTP_RECIPIENT_REJECTED';
+          throw error;
+        }
       }
       req.session.devOtp = null;
-      return { delivery: 'email', messageId: delivery.messageId };
+      return { delivery: brevoApiKey ? 'api' : 'email', messageId: delivery.messageId };
     } catch (e) {
-      console.error('SMTP delivery failed:', e.code || 'UNKNOWN', e.message);
+      console.error('Email delivery failed:', e.code || 'UNKNOWN', e.message);
       req.session.devOtp = null;
       await pool.execute(
         'DELETE FROM email_otps WHERE email=? AND purpose=? AND code_hash=?',
@@ -437,15 +477,15 @@ async function sendCode(req, email, purpose) {
       const detail = String(e.message || '');
       const message = /525|unauthorized ip/i.test(detail)
         ? 'Brevo blocked this server IP (525 Unauthorized IP). Authorize the server IP in Brevo SMTP security settings, or turn off unknown-IP blocking for SMTP.'
-        : /535|invalid login|authentication/i.test(detail)
-          ? 'Brevo rejected the SMTP login. Check the SMTP Login and SMTP key configured in your hosting environment.'
+        : /535|invalid login|authentication|401|unauthorized|api.?key/i.test(`${e.code || ''} ${detail}`)
+          ? 'Brevo rejected the configured API key or SMTP credentials. Check the key and verified sender in your hosting environment.'
           : /sender|from address/i.test(detail)
             ? 'Brevo rejected the sender address. Verify SMTP_FROM_EMAIL as a sender in Brevo.'
             : /timed? ?out|econnreset|econnrefused|esocket|network/i.test(`${e.code || ''} ${detail}`)
-              ? 'The app could not reach Brevo SMTP. Check the hosting network and SMTP_HOST/SMTP_PORT settings, then retry.'
+              ? 'The app could not reach Brevo. Check the hosting network and the configured email transport, then retry.'
               : /account.*(inactive|suspend|disabled)|transactional.*(inactive|disabled|not active)/i.test(detail)
                 ? 'Brevo transactional email is not active for this account. Check the Brevo account status and transactional email settings.'
-            : 'Brevo could not accept the email. Check the SMTP error in the VS Code terminal and your Brevo account status.';
+            : 'Brevo could not accept the email. Check the Render log error code and your Brevo account status.';
       const error = new Error(message);
       error.code = e.code || 'SMTP_DELIVERY_FAILED';
       throw error;

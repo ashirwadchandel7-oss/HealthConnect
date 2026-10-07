@@ -95,7 +95,9 @@ SMTP_FROM_EMAIL=your-verified-sender@example.com
 SMTP_FROM_NAME=HealthConnect Bharat
 ```
 
-Development mode without SMTP displays the development code locally. Production mode refuses to issue verification or reset codes unless SMTP credentials are configured. A Brevo `Unauthorized IP address` response must be resolved in Brevo's access settings/support; application code cannot authorize an IP on your behalf.
+Development mode without an email transport displays the development code locally. Production mode refuses to issue verification or reset codes unless Brevo SMTP credentials or an API key are configured. A Brevo `Unauthorized IP address` SMTP response must be resolved in Brevo's access settings/support; application code cannot authorize an IP on your behalf.
+
+Render Free blocks outbound SMTP ports 25, 465, and 587. For that plan, set `BREVO_API_KEY` in Render Environment to a Brevo API key and keep `SMTP_FROM_EMAIL` set to a verified sender. When the API key is present, the app sends OTP email through Brevo's HTTPS API on port 443; otherwise, it uses the configured SMTP relay. Never put the API key in `SMTP_PASS` or commit it to Git.
 
 ## Roles and implemented workflows
 
