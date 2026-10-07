@@ -39,7 +39,7 @@
       <button
         class="text-link"
         type="submit"
-        data-otp-countdown
+        data-verify-countdown
         data-seconds="<%= resendWaitSeconds || 0 %>"
         data-ready-label="Resend code"
         data-countdown-prefix="Resend code in "
@@ -52,5 +52,34 @@
     <div class="auth-switch">Already verified? <a href="/login">Sign in</a></div>
   </section>
 </main>
+
+<script>
+  (() => {
+    const button = document.querySelector('[data-verify-countdown]');
+    const label = button?.querySelector('[data-countdown-label]');
+    if (!button || !label) return;
+
+    let remaining = Math.max(0, Number.parseInt(button.dataset.seconds || '0', 10) || 0);
+    const renderTimer = () => {
+      button.disabled = remaining > 0;
+      if (remaining <= 0) {
+        label.textContent = 'Resend code';
+        return false;
+      }
+
+      const minutes = Math.floor(remaining / 60);
+      const seconds = String(remaining % 60).padStart(2, '0');
+      label.textContent = `Resend code in ${minutes}:${seconds}`;
+      return true;
+    };
+
+    if (renderTimer()) {
+      const timer = window.setInterval(() => {
+        remaining = Math.max(0, remaining - 1);
+        if (!renderTimer()) window.clearInterval(timer);
+      }, 1000);
+    }
+  })();
+</script>
 
 <%- include('partials/footer') %>

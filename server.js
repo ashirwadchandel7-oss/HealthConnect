@@ -359,7 +359,7 @@ async function sendCode(req, email, purpose) {
       req.session.devOtp = null;
       return { delivery: 'email', messageId: delivery.messageId };
     } catch (e) {
-      console.error('SMTP delivery failed:', e.message);
+      console.error('SMTP delivery failed:', e.code || 'UNKNOWN', e.message);
       req.session.devOtp = null;
       await pool.execute(
         'DELETE FROM email_otps WHERE email=? AND purpose=? AND code_hash=?',
@@ -369,9 +369,13 @@ async function sendCode(req, email, purpose) {
       const message = /525|unauthorized ip/i.test(detail)
         ? 'Brevo blocked this server IP (525 Unauthorized IP). Authorize the server IP in Brevo SMTP security settings, or turn off unknown-IP blocking for SMTP.'
         : /535|invalid login|authentication/i.test(detail)
-          ? 'Brevo rejected the SMTP login. Check SMTP_USER and the Brevo SMTP key in your .env file.'
+          ? 'Brevo rejected the SMTP login. Check the SMTP Login and SMTP key configured in your hosting environment.'
           : /sender|from address/i.test(detail)
             ? 'Brevo rejected the sender address. Verify SMTP_FROM_EMAIL as a sender in Brevo.'
+            : /timed? ?out|econnreset|econnrefused|esocket|network/i.test(`${e.code || ''} ${detail}`)
+              ? 'The app could not reach Brevo SMTP. Check the hosting network and SMTP_HOST/SMTP_PORT settings, then retry.'
+              : /account.*(inactive|suspend|disabled)|transactional.*(inactive|disabled|not active)/i.test(detail)
+                ? 'Brevo transactional email is not active for this account. Check the Brevo account status and transactional email settings.'
             : 'Brevo could not accept the email. Check the SMTP error in the VS Code terminal and your Brevo account status.';
       const error = new Error(message);
       error.code = e.code || 'SMTP_DELIVERY_FAILED';

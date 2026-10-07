@@ -1,5 +1,18 @@
-document.querySelector('.menu-toggle')?.addEventListener('click',e=>{const button=e.currentTarget,nav=document.querySelector('.nav'),open=button.getAttribute('aria-expanded')==='true';button.setAttribute('aria-expanded',String(!open));nav?.classList.toggle('open',!open)});
-document.querySelector('.flash-close')?.addEventListener('click',()=>document.querySelector('.flash')?.remove());
+const menuButton=document.querySelector('.menu-toggle');
+const mainNav=document.querySelector('.nav');
+const closeMenu=()=>{menuButton?.setAttribute('aria-expanded','false');mainNav?.classList.remove('open');};
+menuButton?.addEventListener('click',()=>{const open=menuButton.getAttribute('aria-expanded')==='true';menuButton.setAttribute('aria-expanded',String(!open));mainNav?.classList.toggle('open',!open);});
+document.addEventListener('pointerdown',(event)=>{
+  if(menuButton?.getAttribute('aria-expanded')==='true'&&!mainNav?.contains(event.target)&&!menuButton.contains(event.target))closeMenu();
+});
+document.addEventListener('keydown',(event)=>{if(event.key==='Escape')closeMenu();});
+mainNav?.querySelectorAll('a').forEach(link=>link.addEventListener('click',closeMenu));
+
+document.querySelectorAll('.flash').forEach((notice)=>{
+  const closeButton=notice.querySelector('.flash-close');
+  const timer=window.setTimeout(()=>notice.remove(),120000);
+  closeButton?.addEventListener('click',()=>{window.clearTimeout(timer);notice.remove();});
+});
 
 // Keep profile save actions hidden until a user changes a field.
 document.querySelectorAll('form[data-change-save]').forEach((form)=>{
