@@ -1,0 +1,82 @@
+<%- include('partials/header', { title: 'Provider application | HealthConnect Bharat' }) %>
+
+<main class="dashboard-wrap">
+  <section class="panel">
+    <a class="back-link" href="/dashboard">← Dashboard</a>
+    <span class="eyebrow">Provider review</span>
+    <h1>Your application</h1>
+
+    <% if (!provider) { %>
+      <div class="empty-card"><h2>No application found</h2><p>Your provider profile is not set up. Contact support for help.</p></div>
+    <% } else { %>
+      <div class="status-banner">
+        <strong>Status: <%= provider.verification_status %></strong>
+        <p><%= provider.review_reason || 'Email verification and registration details alone do not verify a professional licence.' %></p>
+      </div>
+
+      <section class="workflow-panel"><h2>Verification documents</h2><p class="muted">Documents are stored outside the public web folder. Only you and administrators can download them.</p><% if(documents.length){ %><div class="workflow-list"><% documents.forEach((document)=>{ %><article class="workflow-card"><div><strong><%= document.original_name %></strong><p><%= document.mime_type %> · <%= Math.ceil(Number(document.file_size)/1024) %> KB · <%= formatDateTime(document.submitted_at) %></p></div><a href="/providers/documents/<%= document.id %>/file">Download</a></article><% }) %></div><% } else { %><p>No supporting documents submitted yet.</p><% } %><% if(provider.verification_status!=='VERIFIED'){ %><form method="post" action="/provider/verification/documents" class="form-stack" data-private-upload><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Document name<input name="originalName" maxlength="180" required placeholder="Registration / organisation proof"></label><label>Choose a PDF, JPG, PNG or WebP file (maximum 5 MB)<input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" data-private-file required><input type="hidden" name="providerFileData" data-private-file-data></label><button class="button primary">Submit verification document</button></form><% } %></section>
+
+      <dl class="provider-details">
+        <dt>Specialty / role</dt><dd><%= provider.specialization || '—' %></dd>
+        <dt>Qualification</dt><dd><%= provider.qualification || '—' %></dd>
+        <dt>Registration number</dt><dd><%= provider.hospital_licence || provider.registration_number || '—' %></dd>
+        <dt>Issuing authority</dt><dd><%= provider.registration_authority || '—' %></dd>
+        <dt>City</dt><dd><%= provider.city || '—' %></dd>
+        <% if (user.role === 'hospital') { %><dt>Registered organisation</dt><dd><%= provider.hospital_name || provider.organization || '—' %></dd><% } %>
+      </dl>
+
+      <% if (user.role === 'doctor' && ['NEEDS_CORRECTION', 'REJECTED'].includes(provider.verification_status)) { %><p class="status-banner">The administrator requested a correction. Open <a href="/profile">Settings → Profile</a> to edit your doctor details; changes require email verification before resubmission.</p><% } %>
+      <% if (user.role !== 'doctor' && ['NEEDS_CORRECTION', 'REJECTED'].includes(provider.verification_status)) { %>
+        <details open>
+          <summary>Correct and resubmit</summary>
+          <form method="post" action="/provider/resubmit" class="form-stack">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="two-col">
+              <label>Organisation / clinic<input name="organization" maxlength="180" value="<%= provider.hospital_name || provider.organization || '' %>"></label>
+              <% if (user.role === 'hospital') { %>
+                <label>Organisation licence number<input name="hospitalLicence" maxlength="120" value="<%= provider.hospital_licence || '' %>"></label>
+                <label>Authorised representative<input name="representativeName" maxlength="120" value="<%= provider.representative_name || '' %>"></label>
+                <label>Departments<input name="departments" maxlength="1000" value="<%= provider.departments || '' %>"></label>
+                <label>Services<input name="services" maxlength="1000" value="<%= provider.services || '' %>"></label>
+                <label>Facilities<input name="facilities" maxlength="1000" value="<%= provider.facilities || '' %>"></label>
+                <label>Accessibility information<input name="accessibility" maxlength="1000" value="<%= provider.accessibility || '' %>"></label>
+              <% } else { %>
+                <% if (user.role === 'doctor') { %>
+                  <label>Medical specialty<select name="specialization" required><% doctorSpecialties.forEach((item) => { %><option value="<%= item %>" <%= provider.specialization === item ? 'selected' : '' %>><%= item %></option><% }) %></select></label>
+                  <fieldset class="doctor-qualification-picker" data-qualification-selector>
+                    <legend>Medical qualifications <span>(choose 1–3)</span></legend>
+                    <div class="qualification-options"><% doctorQualifications.forEach((item) => { %><label><input type="checkbox" name="doctorQualifications" value="<%= item %>" <%= String(provider.qualification || '').split(' · ').includes(item) ? 'checked' : '' %>><span><%= item %></span></label><% }) %></div>
+                    <small data-qualification-message role="status">Choose up to three qualifications.</small>
+                  </fieldset>
+                <% } else { %>
+                  <label>Specialty / professional role<input name="specialization" maxlength="120" value="<%= provider.specialization || '' %>" required></label>
+                  <label>Qualification<input name="qualification" maxlength="180" value="<%= provider.qualification || '' %>" required></label>
+                <% } %>
+                <label>Registration number<input name="registrationNumber" maxlength="100" value="<%= provider.registration_number || '' %>" required></label>
+                <label>Issuing authority<input name="registrationAuthority" maxlength="180" value="<%= provider.registration_authority || '' %>" required></label>
+                <label>Practice address<input name="practiceAddress" maxlength="500" value="<%= provider.practice_address || '' %>"></label>
+              <% } %>
+              <label>City<input name="city" maxlength="100" value="<%= provider.city || '' %>" required></label>
+              <label>State<input name="state" maxlength="100" value="<%= provider.state || '' %>"></label>
+              <label>Postal code<input name="postalCode" maxlength="20" value="<%= provider.postal_code || '' %>"></label>
+            </div>
+            <% if (user.role === 'hospital') { %><label>Registered address<input name="hospitalAddress" maxlength="500" value="<%= provider.hospital_address || '' %>" required></label><% } %>
+            <p class="fineprint">Attach updated verification evidence above before resubmitting if the administrator requested it.</p>
+            <button class="button primary">Resubmit application</button>
+          </form>
+        </details>
+      <% } %>
+
+      <% if (reviews.length) { %>
+        <h2>Review history</h2>
+        <div class="workflow-list">
+          <% reviews.forEach((review) => { %>
+            <article class="workflow-card"><div><strong><%= review.old_status %> → <%= review.new_status %></strong><p><%= review.reason || 'No reason supplied.' %></p><small><%= formatDateTime(review.created_at) %></small></div></article>
+          <% }) %>
+        </div>
+      <% } %>
+    <% } %>
+  </section>
+</main>
+
+<%- include('partials/footer') %>

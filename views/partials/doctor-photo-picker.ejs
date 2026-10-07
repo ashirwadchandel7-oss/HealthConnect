@@ -1,0 +1,37 @@
+<% const fallbackAvatar = typeof avatarUrl === 'string' ? avatarUrl : '/doctor-avatar.svg'; %>
+<section class="doctor-photo-picker" data-doctor-photo-picker data-default-avatar="<%= fallbackAvatar %>" data-initial-photo="<%= photoUrl || '' %>">
+  <h3><%= typeof heading === 'string' ? heading : 'Profile picture' %></h3>
+  <div class="doctor-dp-wrap">
+    <img class="doctor-dp" data-photo-preview src="<%= photoUrl || fallbackAvatar %>" alt="Profile picture">
+    <button class="doctor-dp-camera" type="button" data-photo-menu-toggle aria-label="Change profile picture options" aria-haspopup="true" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="4"/></svg>
+    </button>
+  </div>
+  <p class="doctor-dp-caption">Tap the camera to add or update your photo</p>
+  <div class="doctor-dp-menu" data-photo-menu hidden>
+    <button type="button" data-photo-action="camera">Take Photo</button>
+    <button type="button" data-photo-action="gallery">Choose from Gallery</button>
+    <button type="button" data-photo-action="remove">Remove Photo</button>
+  </div>
+  <div class="doctor-photo-adjust" data-photo-adjust hidden aria-label="Adjust photo crop">
+    <label>Zoom <input type="range" min="100" max="250" value="100" data-photo-zoom></label>
+    <label>Left / right <input type="range" min="0" max="100" value="50" data-photo-x></label>
+    <label>Up / down <input type="range" min="0" max="100" value="50" data-photo-y></label>
+    <span>Your adjusted circular preview is saved with your profile.</span>
+  </div>
+  <p class="doctor-photo-hint">JPG, JPEG, PNG or WebP · maximum 5 MB. Allow camera access when your browser asks.</p>
+  <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" data-photo-gallery hidden>
+  <input type="hidden" name="profileImageData" value="" data-photo-data>
+  <input type="hidden" name="removeProfilePhoto" value="" data-photo-remove>
+  <p class="doctor-photo-error" data-photo-error role="alert" hidden></p>
+  <dialog class="doctor-camera-dialog" data-camera-dialog aria-label="Take a profile photo">
+    <div class="doctor-camera-panel">
+      <video data-camera-video autoplay playsinline></video>
+      <p data-camera-status>Position your face in the frame.</p>
+      <div class="doctor-camera-actions">
+        <button type="button" class="button button-secondary" data-camera-cancel>Cancel</button>
+        <button type="button" class="button" data-camera-capture>Take photo</button>
+      </div>
+    </div>
+  </dialog>
+</section>

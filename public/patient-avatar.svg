@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Default patient profile avatar">
+  <rect width="160" height="160" rx="80" fill="#dcf1eb"/>
+  <circle cx="80" cy="58" r="29" fill="#1b8a7a"/>
+  <path d="M28 145c4-31 24-48 52-48s48 17 52 48" fill="#1b8a7a"/>
+</svg>

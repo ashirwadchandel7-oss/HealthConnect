@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8f5">
+  <title><%= title || 'HealthConnect Bharat' %></title>
+  <link rel="stylesheet" href="/styles.css?v=20261006-home-photo-v1">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-group">
+      <a class="brand" href="/">
+        <span class="brand-icon">✚</span>
+        <span>HealthConnect<small>BHARAT 2.0</small></span>
+      </a>
+      <% if (currentPath !== '/') { %><button class="back-button" type="button" data-back-button data-back-fallback="/">← Back</button><% } %>
+    </div>
+    <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+
+    <nav class="nav" aria-label="Main navigation">
+      <% if (!user) { %>
+        <a href="/">Home</a><a href="/healthcare">Healthcare</a><a href="/doctors">Doctors</a><a href="/hospitals">Hospitals</a><a href="/about">About</a>
+        <a href="/login">Sign in</a><a class="nav-cta" href="/register">Create account <span>↗</span></a>
+      <% } else if (user.role === 'patient') { %>
+        <a href="/">Home</a><a href="/doctors">Find a doctor</a><a href="/hospitals">Find a hospital</a><a href="/consultations">Online consultations</a><a href="/health-assistant">Health assistant</a><a href="/dashboard#patient-prescriptions">Prescriptions</a><a href="/dashboard#doctor-notifications">Notifications</a>
+      <% } else if (user.role === 'doctor') { %>
+        <a href="/provider/status">Verification</a><a href="/doctor/home#doctor-payment-settings">UPI payments</a><a href="/consultations">Online consultations</a><a href="/doctor/home#doctor-schedule">Availability</a><a href="/doctor/home#doctor-patients">Patients</a><a href="/doctor/home#doctor-prescriptions">Prescriptions</a><a href="/doctor/home#doctor-notifications">Notifications</a><a href="/doctor/home#doctor-messages">Messages</a>
+      <% } else if (user.role === 'hospital') { %>
+        <a href="/hospital/home#hospital-home">Home</a><a href="/provider/status">Verification</a><a href="/hospital/home#hospital-doctors">Doctors</a><a href="/hospital/home#hospital-appointments">Appointments</a><a href="/hospital/home#hospital-facilities">Facilities</a>
+      <% } else if (user.role === 'admin') { %>
+        <a href="/admin">Dashboard</a><a href="/admin/consultations">Consultations & billing</a><a href="/admin#a-provider-applications">Verifications</a><a href="/admin#a-accounts">Users</a><a href="/admin#a-affiliations">Affiliations</a><a href="/admin/audit">Audit logs</a>
+      <% } %>
+      <% if (user) { %><a class="settings-nav-button" href="/settings" aria-label="Settings"><span aria-hidden="true">⚙</span><span data-i18n="Settings">Settings</span></a><% } %>
+    </nav>
+  </header>
+
+  <% if (notice) { %>
+    <div class="flash <%= notice.type %>" role="status">
+      <%= notice.message %>
+      <button class="flash-close" aria-label="Dismiss">×</button>
+    </div>
+  <% } %>

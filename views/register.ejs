@@ -1,0 +1,87 @@
+<%- include('partials/header',{title:'Create account | HealthConnect Bharat'}) %>
+<main class="auth-layout register-layout">
+  <div class="auth-aside">
+    <span class="eyebrow">Care connects us</span>
+    <h1>Start your next<br>chapter in <em>care.</em></h1>
+    <p>Create an account to connect with the healthcare community.</p>
+    <ul class="benefit-list"><li>✓ One account for your care journey</li><li>✓ Email verified account access</li><li>✓ A clear place to begin</li></ul>
+  </div>
+  <section class="auth-card wide">
+    <a class="back-link" href="/">← Back to home</a>
+    <span class="eyebrow">A better connected you</span>
+    <h2>Create your account</h2>
+    <p class="muted">We'll send a verification code to your email.</p>
+    <% if(error){ %><div class="form-error"><%= error %></div><% } %>
+    <form method="post" action="/register" class="form-stack" id="register-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="role-fields doctor-photo-top" data-role="doctor">
+        <%- include('partials/doctor-photo-picker', { photoUrl: null, idPrefix: 'signup-doctor' }) %>
+      </div>
+      <label>I am joining as
+        <select name="role" required>
+          <option value="">Choose account type</option>
+          <% Object.entries(roles).forEach(([key,label])=>{ %><option value="<%= key %>" <%= form.role===key?'selected':'' %>><%= label %></option><% }) %>
+        </select>
+      </label>
+      <div class="two-col">
+        <label>Full name<input name="name" autocomplete="name" required maxlength="100" value="<%= form.name||'' %>" placeholder="Your full name"></label>
+        <label>Phone number<input name="phone" autocomplete="tel" inputmode="tel" required value="<%= form.phone||'' %>" placeholder="+91 98765 43210"></label>
+      </div>
+      <label>Email address<input name="email" type="email" autocomplete="email" required value="<%= form.email||'' %>" placeholder="you@example.com"></label>
+
+      <div class="role-fields" data-role="doctor">
+        <label data-required>Medical specialty
+          <select name="specialization">
+            <option value="">Select a specialty</option>
+            <% ['Anaesthesiology','Cardiology','Cardiothoracic Surgery','Dentistry','Dermatology','Emergency Medicine','Endocrinology','ENT / Otolaryngology','Family Medicine','Gastroenterology','General Medicine','General Surgery','Geriatrics','Haematology','Infectious Disease','Nephrology','Neurology','Neurosurgery','Obstetrics & Gynaecology','Oncology','Ophthalmology','Orthopaedics','Paediatrics','Pathology','Psychiatry','Pulmonology','Radiology','Rheumatology','Urology'].forEach(item=>{ %><option value="<%= item %>" <%= form.specialization===item?'selected':'' %>><%= item %></option><% }) %>
+          </select>
+        </label>
+        <label data-required>City
+          <select name="city">
+            <option value="">Select a city</option>
+            <% ['Agra','Ahmedabad','Amritsar','Bengaluru','Bhopal','Bhubaneswar','Chandigarh','Chennai','Coimbatore','Dehradun','Delhi','Faridabad','Ghaziabad','Guwahati','Hyderabad','Indore','Jaipur','Kanpur','Kochi','Kolkata','Lucknow','Ludhiana','Madurai','Mangaluru','Mumbai','Mysuru','Nagpur','Nashik','Noida','Patna','Pune','Raipur','Rajkot','Ranchi','Surat','Thane','Thiruvananthapuram','Vadodara','Varanasi','Vijayawada','Visakhapatnam'].forEach(item=>{ %><option value="<%= item %>" <%= form.city===item?'selected':'' %>><%= item %></option><% }) %>
+          </select>
+        </label>
+        <fieldset class="doctor-qualification-picker" data-required data-qualification-selector>
+          <legend>Medical qualifications <span>(choose 1–3)</span></legend>
+          <div class="qualification-options">
+            <% const selectedQualifications = String(form.qualification || '').split(' · ').filter(Boolean); %>
+            <% doctorQualifications.forEach((item) => { %>
+              <label><input type="checkbox" name="doctorQualifications" value="<%= item %>" <%= selectedQualifications.includes(item) ? 'checked' : '' %>><span><%= item %></span></label>
+            <% }) %>
+          </div>
+          <input type="hidden" name="qualification" value="<%= form.qualification || '' %>" data-qualification-value>
+          <small data-qualification-message role="status">Select up to three qualifications. Your account remains pending until an administrator reviews your documents.</small>
+        </fieldset>
+        <label data-required>Medical registration number<input name="registrationNumber" value="<%= form.registrationNumber||'' %>" placeholder="Council registration ID"></label>
+      </div>
+<div class="role-fields" data-role="hospital">
+        <label data-required>Hospital / organisation name<input name="organization" value="<%= form.organization||'' %>" placeholder="Organisation name"></label>
+        <label data-required>City<select name="city"><option value="">Select a city</option><% ['Agra','Ahmedabad','Amritsar','Bengaluru','Bhopal','Bhubaneswar','Chandigarh','Chennai','Coimbatore','Dehradun','Delhi','Faridabad','Ghaziabad','Guwahati','Hyderabad','Indore','Jaipur','Kanpur','Kochi','Kolkata','Lucknow','Ludhiana','Madurai','Mangaluru','Mumbai','Mysuru','Nagpur','Nashik','Noida','Patna','Pune','Raipur','Rajkot','Ranchi','Surat','Thane','Thiruvananthapuram','Vadodara','Varanasi','Vijayawada','Visakhapatnam'].forEach(item=>{ %><option value="<%= item %>" <%= form.city===item?'selected':'' %>><%= item %></option><% }) %></select></label>
+        <label data-required>Registered address<textarea name="hospitalAddress" required maxlength="500" rows="2"><%= form.hospitalAddress||'' %></textarea></label>
+        <label>Registration / licence number<input name="hospitalLicence" maxlength="120" value="<%= form.hospitalLicence||'' %>"></label>
+        <label>Departments<input name="departments" maxlength="1000" value="<%= form.departments||'' %>" placeholder="Cardiology, Paediatrics"></label>
+        <label>Services<input name="services" maxlength="1000" value="<%= form.services||'' %>" placeholder="Diagnostics, emergency"></label>
+        <label>Facilities<input name="facilities" maxlength="1000" value="<%= form.facilities||'' %>"></label>
+        <label>Accessibility<input name="accessibility" maxlength="1000" value="<%= form.accessibility||'' %>"></label>
+        <label>Authorised representative<input name="representativeName" maxlength="120" value="<%= form.representativeName||'' %>"></label>
+      </div>
+
+      <div class="role-fields" data-role="doctor">
+        <label data-required>Registration council / issuing authority<input name="registrationAuthority" maxlength="180" value="<%= form.registrationAuthority||'' %>" placeholder="Council or issuing authority"></label>
+        <label>Years of experience<input name="yearsExperience" type="number" min="0" max="70" value="<%= form.yearsExperience||'' %>"></label>
+        <label>Practice address<input name="practiceAddress" maxlength="500" value="<%= form.practiceAddress||'' %>"></label>
+      </div>
+
+      <div class="two-col">
+        <label>Password<input type="password" name="password" autocomplete="new-password" minlength="10" required placeholder="At least 10 characters"></label>
+        <label>Confirm password<input type="password" name="confirmPassword" autocomplete="new-password" minlength="10" required placeholder="Enter it again"></label>
+      </div>
+      <p class="password-hint">Use 10 or more characters with at least one letter and number.</p>
+      <button class="button primary full">Create account <span>→</span></button>
+    </form>
+    <div class="auth-switch">Already have an account? <a href="/login">Sign in</a></div>
+    <p class="fineprint">Professional accounts stay pending until their qualifications are reviewed. Creating an account does not verify a medical licence.</p>
+  </section>
+</main>
+<%- include('partials/footer') %>

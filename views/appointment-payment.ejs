@@ -1,0 +1,15 @@
+<%- include('partials/header', { title: 'UPI payment | HealthConnect Bharat' }) %>
+<main class="directory-wrap">
+  <a class="back-link" href="/dashboard#patient-appointments">← Back to my appointments</a>
+  <section class="panel appointment-payment">
+    <span class="eyebrow">Mock UPI payment</span>
+    <h1>Doctor's UPI details</h1>
+    <div class="appointment-doctor"><img class="doctor-avatar" src="<%= appointment.doctor_photo || '/doctor-avatar.svg' %>" alt=""><div><h2><%= appointment.doctor_name %></h2><p><%= appointment.specialization %> · <%= formatDateTime(appointment.starts_at) %></p><p>Booking <strong><%= appointment.booking_reference %></strong></p></div></div>
+    <p class="proof-amount">₹<%= Number(appointment.payment_amount).toFixed(2) %></p>
+    <div class="upi-payment-details"><strong>UPI ID</strong><p class="upi-id"><%= appointment.upi_id %></p><img class="doctor-payment-qr payment-qr-large" src="<%= appointment.qr_image_url %>" alt="Doctor's UPI QR code"></div>
+    <p class="status-banner"><strong>Demo only:</strong> This website does not contact a bank or verify UPI transfers. Press the button below to simulate success. No real payment is made or confirmed.</p>
+    <form method="post" action="/appointments/<%= appointment.id %>/payment/mock-complete"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button primary" type="submit">Simulate successful UPI payment</button></form>
+    <p class="fineprint">After the mock payment step, the appointment is confirmed and its proof PDF becomes available in your patient dashboard.</p>
+  </section>
+</main>
+<%- include('partials/footer') %>

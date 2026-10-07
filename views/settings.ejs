@@ -1,0 +1,47 @@
+<%- include('partials/header', { title: 'Settings | HealthConnect Bharat' }) %>
+
+<main class="settings-page-wrap">
+  <section class="settings-page-heading">
+    <span class="eyebrow">Account controls</span>
+    <h1 data-i18n="Settings">Settings</h1>
+    <p class="muted">Manage your profile, open your account sections, and choose your website language.</p>
+  </section>
+
+  <section class="settings-page-grid" aria-label="Account settings">
+    <a class="settings-page-card settings-profile-card" href="/profile">
+      <span class="settings-card-icon" aria-hidden="true">👤</span>
+      <span class="settings-card-copy"><strong data-i18n="Profile">Profile</strong><small>View or edit your account details and profile picture.</small></span>
+      <span class="settings-card-arrow" aria-hidden="true">→</span>
+    </a>
+
+    <% if (user.role === 'patient') { %>
+      <a class="settings-page-card" href="/dashboard#patient-dashboard"><span class="settings-card-icon" aria-hidden="true">▦</span><span class="settings-card-copy"><strong data-i18n="Overview">Overview</strong><small>Your care summary and next appointment.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+      <a class="settings-page-card" href="/my-appointments"><span class="settings-card-icon" aria-hidden="true">▣</span><span class="settings-card-copy"><strong data-i18n="My appointments">My appointments</strong><small>Open your bookings and appointment proofs.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+      <a class="settings-page-card" href="/records"><span class="settings-card-icon" aria-hidden="true">▤</span><span class="settings-card-copy"><strong data-i18n="Records">Records</strong><small>View your saved medical records.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+      <a class="settings-page-card" href="/health-assistant"><span class="settings-card-icon" aria-hidden="true">✦</span><span class="settings-card-copy"><strong data-i18n="Health assistant">Health assistant</strong><small data-i18n="Open the separate AI health chat.">Open the separate AI health chat.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+    <% } else if (user.role === 'doctor') { %>
+      <a class="settings-page-card" href="/doctor/home#doctor-home"><span class="settings-card-icon" aria-hidden="true">▦</span><span class="settings-card-copy"><strong data-i18n="Overview">Overview</strong><small>Your practice summary and account status.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+      <a class="settings-page-card" href="/my-appointments"><span class="settings-card-icon" aria-hidden="true">▣</span><span class="settings-card-copy"><strong data-i18n="My appointments">My appointments</strong><small>Review your patient appointments.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+      <a class="settings-page-card" href="/records"><span class="settings-card-icon" aria-hidden="true">▤</span><span class="settings-card-copy"><strong data-i18n="Records">Records</strong><small>Open records linked to your appointments.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+    <% } else if (user.role === 'hospital') { %>
+      <a class="settings-page-card" href="/hospital/home#hospital-home"><span class="settings-card-icon" aria-hidden="true">▦</span><span class="settings-card-copy"><strong data-i18n="Overview">Overview</strong><small>Your organisation status and activity.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+      <a class="settings-page-card" href="/my-appointments"><span class="settings-card-icon" aria-hidden="true">▣</span><span class="settings-card-copy"><strong data-i18n="My appointments">My appointments</strong><small>Upcoming appointments with affiliated doctors.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+    <% } else if (user.role === 'admin') { %>
+      <a class="settings-page-card" href="/admin"><span class="settings-card-icon" aria-hidden="true">▦</span><span class="settings-card-copy"><strong data-i18n="Overview">Overview</strong><small>Open the administration dashboard.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+      <a class="settings-page-card" href="/admin/consultations"><span class="settings-card-icon" aria-hidden="true">▣</span><span class="settings-card-copy"><strong data-i18n="Consultations">Consultations</strong><small>Review online consultation activity and billing.</small></span><span class="settings-card-arrow" aria-hidden="true">→</span></a>
+    <% } %>
+
+    <section class="settings-page-card settings-language-card">
+      <span class="settings-card-icon" aria-hidden="true">文</span>
+      <label class="settings-card-copy" for="settings-language"><strong data-i18n="Language">Language</strong><small>Choose the language used for website interface text.</small></label>
+      <select id="settings-language" data-site-language aria-label="Website language"><option value="en">English</option><option value="hi">हिन्दी</option><option value="ta">தமிழ்</option><option value="gu">ગુજરાતી</option></select>
+    </section>
+  </section>
+
+  <form method="post" action="/logout" class="settings-signout-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <button type="submit" data-i18n="Sign out"><span aria-hidden="true">↪</span> Sign out</button>
+  </form>
+</main>
+
+<%- include('partials/footer') %>

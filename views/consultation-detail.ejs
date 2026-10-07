@@ -1,0 +1,50 @@
+<%- include('partials/header', { title: 'Online consultation | HealthConnect Bharat' }) %>
+<main class="directory-wrap consultation-detail" data-consultation="<%= consultation.public_id %>" data-role="<%= pageRole %>" data-csrf="<%= csrfToken %>" data-status="<%= consultation.status %>" data-rate="<%= Number(consultation.rate_per_minute) %>">
+  <a class="back-link" href="/consultations">← Back to consultations</a>
+  <section class="panel consultation-head">
+    <div class="appointment-doctor"><img class="doctor-avatar" src="<%= pageRole==='doctor'?(consultation.patient_photo||'/patient-avatar.svg'):(consultation.doctor_photo||'/doctor-avatar.svg') %>" alt=""><div><span class="eyebrow">Appointment type: Online consultation</span><h1><%= pageRole==='doctor'?consultation.patient_name:consultation.doctor_name %></h1><p><%= consultation.specialization||'' %><% if(consultation.qualification){ %> · <%= consultation.qualification %><% } %></p></div></div>
+    <span class="status-pill"><%= consultation.status %></span>
+    <div class="doctor-stats"><article><span>Rate</span><strong>₹<%= Number(consultation.rate_per_minute).toFixed(2) %>/min</strong></article><article><span>Maximum call</span><strong><%= Number(consultation.max_minutes) %> minutes</strong></article><article><span>Payment</span><strong><%= consultation.payment_status %></strong></article></div>
+  </section>
+
+  <% if(consultation.status==='REQUESTED'&&pageRole==='doctor'){ %>
+    <section class="panel action-stack"><h2>Consultation request</h2><p>Choose the exact appointment time. The patient will be notified; the secure call opens 15 minutes before that time.</p><form method="post" action="/consultations/<%= consultation.public_id %>/accept" class="form-stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><label>Appointment date and time (India time)<input type="datetime-local" name="scheduledAt" min="<%= minimumScheduleTime %>" required></label><button class="button primary">Accept and schedule</button></form><form method="post" action="/consultations/<%= consultation.public_id %>/reject"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button quiet">Decline request</button></form></section>
+  <% } %>
+
+  <% if(['REQUESTED','ACCEPTED','READY'].includes(consultation.status)&&!consultation.started_at&&pageRole==='patient'){ %>
+    <section class="panel action-stack"><h2>Online consultation</h2><p>You can cancel this consultation before the call starts. After cancellation, you can send another online consultation request.</p><form method="post" action="/consultations/<%= consultation.public_id %>/cancel" data-cancel-consultation><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button danger">Cancel this consultation</button></form></section>
+  <% } %>
+
+  <% if(consultation.status==='ACCEPTED'&&consultation.scheduled_at){ %>
+    <section class="panel scheduled-consultation" data-scheduled-consultation>
+      <span class="eyebrow">Appointment scheduled</span>
+      <h2><%= scheduledAtLabel %> India time</h2>
+      <p data-appointment-countdown>The call button will activate 15 minutes before this time. Both you and the other participant can join from this page.</p>
+    </section>
+  <% } %>
+
+  <% if(['ACCEPTED','READY','ACTIVE'].includes(consultation.status)){ %>
+    <section class="panel call-toolbar">
+      <div><span class="eyebrow">Live video and audio</span><h2>Consultation room</h2><p data-call-status role="status"><%= consultation.status==='ACTIVE'?'Call active. Duration is tracked by the server.':consultation.status==='ACCEPTED'&&consultation.scheduled_at?'The scheduled call becomes available 15 minutes before the appointment.':'Join when both you and the other participant are ready.' %></p></div>
+      <p>Call duration: <strong data-call-duration>00:00</strong> · Estimated demo amount: <strong data-call-estimate>₹0.00</strong></p>
+      <p class="fineprint">The official duration and final amount are calculated by the server. Demo rate ₹<%= Number(consultation.rate_per_minute).toFixed(2) %> per minute; no payment is due until after the call.</p>
+      <div class="call-controls"><button class="button primary" type="button" data-join-call <%= consultation.status==='ACCEPTED'&&consultation.scheduled_at&&!canJoin?'disabled':'' %>>Join video consultation</button><button class="button quiet" type="button" data-toggle-mic disabled>Mute microphone</button><button class="button quiet" type="button" data-toggle-camera disabled>Turn camera off</button></div>
+      <div class="video-grid"><video data-remote-video autoplay playsinline></video><video data-local-video autoplay playsinline muted></video></div>
+      <form method="post" action="/consultations/<%= consultation.public_id %>/end" data-end-consultation><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button danger">End consultation</button></form>
+    </section>
+  <% } %>
+
+  <% if(consultation.status==='SETTLING'&&pageRole==='patient'){ %>
+    <section class="panel"><span class="eyebrow">Demo payment</span><h2>Consultation finished</h2><p>Server-recorded duration: <strong><%= Math.floor(Number(consultation.actual_seconds)/60) %> min <%= Number(consultation.actual_seconds)%60 %> sec</strong></p><p>Rate: ₹<%= Number(consultation.rate_per_minute).toFixed(2) %>/minute · Final amount: <strong>₹<%= Number(consultation.total_amount).toFixed(2) %></strong></p><p class="status-banner">Demo Payment — No real money is charged. This mock payment is only for demonstration.</p>
+      <% if(demoControls){ %><form method="post" action="/consultations/<%= consultation.public_id %>/mock-payment" class="action-stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button primary" name="action" value="success">Simulate successful demo payment · ₹<%= Number(consultation.total_amount).toFixed(2) %></button><button class="button quiet" name="action" value="fail">Simulate failed payment</button><button class="button quiet" name="action" value="cancel">Cancel demo payment</button></form><% } else { %><p>Mock payment simulation controls are disabled in production.</p><% } %>
+      <% if(consultation.transaction_id){ %><p>Demo transaction: <strong><%= consultation.transaction_id %></strong> · <%= consultation.demo_payment_status %></p><% } %>
+    </section>
+  <% } %>
+
+  <% if(['COMPLETED','FAILED','CANCELLED','REJECTED','EXPIRED'].includes(consultation.status)){ %>
+    <section class="panel"><h2><%= consultation.status==='COMPLETED'?'Consultation complete':'Consultation '+consultation.status.toLowerCase() %></h2><p>Server-recorded duration: <%= Math.floor(Number(consultation.actual_seconds)/60) %> min <%= Number(consultation.actual_seconds)%60 %> sec · Rate: ₹<%= Number(consultation.rate_per_minute).toFixed(2) %>/minute · Amount: ₹<%= Number(consultation.total_amount).toFixed(2) %></p><p>Payment: <strong><%= consultation.demo_payment_status||consultation.payment_status %></strong><% if(consultation.transaction_id){ %> · Demo transaction: <strong><%= consultation.transaction_id %></strong><% } %></p><p class="fineprint">Demo Payment — No real money is charged.</p></section>
+  <% } %>
+</main>
+<% if(['ACCEPTED','READY','ACTIVE'].includes(consultation.status)){ %><script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js" defer></script><script src="/consultation-room.js" defer></script><% } %>
+<% if(consultation.status==='REQUESTED'){ %><script src="/consultation-status.js" defer></script><% } %>
+<%- include('partials/footer') %>

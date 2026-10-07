@@ -1,0 +1,65 @@
+<%- include('partials/header', { title: doctor.name + ' | HealthConnect Bharat' }) %>
+<main class="directory-wrap">
+  <a class="back-link" href="/doctors">← Back to doctors</a>
+  <section class="panel doctor-profile">
+    <img class="doctor-profile-photo" src="<%= doctor.profile_image_url || '/doctor-avatar.svg' %>" alt="Photo of <%= doctor.name %>">
+    <span class="verified">✓ Verified professional</span>
+    <h1><%= doctor.name %></h1>
+    <h2><%= doctor.specialization %></h2>
+    <p><%= doctor.qualification %><% if (doctor.years_experience != null) { %> · <%= doctor.years_experience %> years' experience<% } %></p>
+    <p><%= doctor.practice_address || doctor.city %></p>
+    <% if (doctor.consultation_fee != null) { %><p>In-person consultation fee: ₹<%= doctor.consultation_fee %></p><% } %>
+    <div id="online-consultation" class="doctor-online-option">
+      <h3>Online consultation</h3>
+      <% if (onlineAvailable) { %><div class="online-consult-badge"><span>● Accepting online requests now</span><strong>₹<%= consultationRate.toFixed(2) %> / minute</strong></div><% } else if (onlineBookingEnabled) { %><p class="muted">Request an online consultation and the doctor will choose an exact appointment time.</p><% } else { %><p class="muted">Online consultation requests are not enabled for this doctor right now.</p><% } %>
+      <% if (onlineBookingEnabled && integrationConfigured && user?.role === 'patient') { %>
+        <a class="button primary" href="/consultations/new/<%= doctor.id %>">Request online consultation →</a>
+      <% } else if (onlineBookingEnabled && integrationConfigured && !user) { %>
+        <a class="button primary" href="/login?next=<%= encodeURIComponent('/consultations/new/'+doctor.id) %>">Sign in to request online consultation →</a>
+      <% } else if (onlineBookingEnabled && !integrationConfigured) { %><p class="status-banner">Online requests are enabled, but secure video setup is incomplete. Confirm LiveKit credentials and restart the server.</p><% } else if (onlineBookingEnabled && user?.role !== 'patient') { %><p class="muted">Sign in with a patient account to request an online consultation.</p><% } %>
+    </div>
+  </section>
+
+  <section class="panel workflow-panel">
+    <h2>Weekly clinic hours</h2>
+    <% if (weeklySchedule.length) { %>
+      <div class="workflow-list">
+        <% const clinicDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']; weeklySchedule.forEach((item) => { %>
+          <article class="workflow-card"><strong><%= clinicDays[Number(item.weekday)] %></strong><span><%= item.starts_at %>–<%= item.ends_at %> · <%= item.appointment_minutes %>-minute appointments</span></article>
+        <% }) %>
+      </div>
+    <% } else { %><p class="muted">The doctor has not published weekly clinic hours yet.</p><% } %>
+  </section>
+
+  <section class="panel workflow-panel">
+    <h2>Weekly online consultation hours</h2>
+    <% if (onlineSchedule.length) { %>
+      <div class="workflow-list">
+        <% const onlineDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']; onlineSchedule.forEach((item) => { %>
+          <article class="workflow-card"><strong><%= onlineDays[Number(item.weekday)] %></strong><span><%= item.starts_at %>–<%= item.ends_at %> India time</span></article>
+        <% }) %>
+      </div>
+    <% } else { %><p class="muted">The doctor has not published online consultation hours.</p><% } %>
+  </section>
+
+  <section class="panel workflow-panel">
+    <h2>Available appointment times</h2>
+    <% if (slots.length) { %>
+      <div class="workflow-list">
+        <% slots.forEach((slot) => { %>
+          <article class="workflow-card">
+            <div><strong><%= formatDateTime(slot.starts_at) %></strong><p><%= slot.consultation_type.replace('_',' ') %> · <%= slot.location || 'Location to be confirmed' %></p><% if (slot.consultation_type === 'online' && !integrationConfigured) { %><p>Online video service is not configured.</p><% } %></div>
+            <% if (slot.consultation_type === 'in_person' && user && user.role === 'patient') { %>
+              <form method="post" action="/appointments" class="form-stack" data-appointment-booking><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="availabilityId" value="<%= slot.id %>"><label>Reason for visit<input name="reason" required maxlength="500" placeholder="Brief reason"></label><fieldset class="payment-choice"><legend>Appointment fee · ₹<%= Number(doctor.consultation_fee || 0).toFixed(2) %></legend><label class="check-label"><input type="radio" name="paymentMethod" value="CASH" checked> Pay cash at the clinic</label><label class="check-label"><input type="radio" name="paymentMethod" value="UPI" <%= doctor.upi_id && doctor.qr_image_url && Number(doctor.consultation_fee)>0 ? '' : 'disabled' %>> Online UPI (demo payment)</label>
+                <% if(doctor.upi_id && doctor.qr_image_url && Number(doctor.consultation_fee)>0){ %><div class="upi-booking-details" data-upi-booking-details hidden><strong>Doctor's UPI payment details</strong><p>UPI ID: <strong><%= doctor.upi_id %></strong></p><img src="<%= doctor.qr_image_url %>" alt="UPI QR code for Dr. <%= doctor.name %>" class="doctor-payment-qr"><small>After booking, scan the QR if needed and use the demo payment step. Demo mode does not verify or move real money.</small></div><% } else { %><small class="muted">This doctor has not set a UPI ID, QR code, and consultation fee. Cash booking is available.</small><% } %></fieldset><button class="button primary">Book appointment</button></form>
+            <% } else if (!user) { %>
+              <a class="button primary" href="/login?next=<%= encodeURIComponent('/doctors/'+doctor.id) %>">Sign in to book</a>
+            <% } else { %><p>Sign in as a patient to request an appointment.</p><% } %>
+          </article>
+        <% }) %>
+      </div>
+    <% } else { %><div class="empty-card"><h3>No available times</h3><p>This verified doctor has not published an available appointment time.</p></div><% } %>
+  </section>
+</main>
+<script src="/appointment-booking.js" defer></script>
+<%- include('partials/footer') %>

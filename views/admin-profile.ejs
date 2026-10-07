@@ -1,0 +1,20 @@
+<%- include('partials/header', { title: 'My profile | HealthConnect Bharat' }) %>
+<main class="dashboard-wrap profile-screen">
+  <section class="panel profile-panel" id="admin-profile">
+    <span class="eyebrow">Administrator account</span>
+    <h1>My profile</h1>
+    <p class="muted">Your administrator account details are private to your signed-in account.</p>
+    <form method="post" action="/profile" class="form-stack" data-change-save>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="two-col">
+        <label>Full name<input name="name" required minlength="2" maxlength="100" value="<%= profile.name || '' %>"></label>
+        <label>Email address<input type="email" value="<%= profile.email %>" readonly></label>
+        <label>Phone<input name="phone" type="tel" required value="<%= profile.phone || '' %>"></label>
+        <label>City<input name="city" maxlength="100" value="<%= profile.city || '' %>"></label>
+      </div>
+      <p class="muted">Account status: <strong><%= profile.account_status %></strong> · Email <strong><%= profile.email_verified ? 'verified' : 'not verified' %></strong></p>
+      <button class="button primary" type="submit" data-change-submit hidden>Save profile</button>
+    </form>
+  </section>
+</main>
+<%- include('partials/footer') %>

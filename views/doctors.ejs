@@ -1,0 +1,126 @@
+<%- include('partials/header', { title: 'Find a doctor | HealthConnect Bharat' }) %>
+
+<main class="directory-wrap">
+  <div class="directory-intro">
+    <span class="eyebrow">Care starts with a connection</span>
+    <h1>Find a doctor <em>near you.</em></h1>
+    <p>Search by doctor name or choose a specialty and city.</p>
+  </div>
+
+  <form class="directory-search" method="get" action="/doctors">
+    <label>
+      Doctor or specialty
+      <input
+        name="q"
+        list="doctor-specialties"
+        value="<%= q %>"
+        placeholder="Type a name or select a specialty"
+      >
+      <datalist id="doctor-specialties">
+        <% [
+          'Anaesthesiology', 'Cardiology', 'Cardiothoracic Surgery', 'Dentistry',
+          'Dermatology', 'Emergency Medicine', 'Endocrinology', 'ENT / Otolaryngology',
+          'Family Medicine', 'Gastroenterology', 'General Medicine', 'General Surgery',
+          'Geriatrics', 'Haematology', 'Infectious Disease', 'Nephrology', 'Neurology',
+          'Neurosurgery', 'Obstetrics & Gynaecology', 'Oncology', 'Ophthalmology',
+          'Orthopaedics', 'Paediatrics', 'Pathology', 'Psychiatry', 'Pulmonology',
+          'Radiology', 'Rheumatology', 'Urology'
+        ].forEach((specialty) => { %>
+          <option value="<%= specialty %>"></option>
+        <% }) %>
+      </datalist>
+    </label>
+
+    <label>
+      City
+      <select name="city">
+        <option value="">All cities</option>
+        <% [
+          'Agra', 'Ahmedabad', 'Amritsar', 'Bengaluru', 'Bhopal', 'Bhubaneswar',
+          'Chandigarh', 'Chennai', 'Coimbatore', 'Dehradun', 'Delhi', 'Faridabad',
+          'Ghaziabad', 'Guwahati', 'Hyderabad', 'Indore', 'Jaipur', 'Kanpur', 'Kochi',
+          'Kolkata', 'Lucknow', 'Ludhiana', 'Madurai', 'Mangaluru', 'Mumbai', 'Mysuru',
+          'Nagpur', 'Nashik', 'Noida', 'Patna', 'Pune', 'Raipur', 'Rajkot', 'Ranchi',
+          'Surat', 'Thane', 'Thiruvananthapuram', 'Vadodara', 'Varanasi', 'Vijayawada',
+          'Visakhapatnam'
+        ].forEach((cityName) => { %>
+          <option value="<%= cityName %>" <%= city === cityName ? 'selected' : '' %>>
+            <%= cityName %>
+          </option>
+        <% }) %>
+      </select>
+    </label>
+
+    <button class="button primary" type="submit">Search →</button>
+  </form>
+
+  <% if (directoryError) { %><div class="empty-card" role="alert"><h2>Directory unavailable</h2><p><%= directoryError %></p></div><% } else if (doctors.length) { %>
+    <p class="muted result-count">
+      <%= total %> approved result<%= total === 1 ? '' : 's' %>
+    </p>
+
+    <div class="doctor-grid">
+      <% doctors.forEach((doctor) => { %>
+        <article class="doctor-card">
+          <div class="doctor-avatar">
+            <img src="<%= doctor.profile_image_url || '/doctor-avatar.svg' %>" alt="Photo of <%= doctor.name %>">
+          </div>
+          <h3><a href="/doctors/<%= doctor.id %>"><%= doctor.name %></a></h3>
+          <p class="doctor-specialization"><strong class="doctor-card-info-label">Specialty:</strong> <%= doctor.specialization || 'Healthcare professional' %></p>
+          <span class="doctor-city"><strong class="doctor-card-info-label">City:</strong> <%= doctor.city || 'India' %></span>
+          <% if (doctor.qualification) { %>
+            <small class="doctor-qualification"><strong class="doctor-card-info-label">Qualification:</strong> <%= doctor.qualification %></small>
+          <% } %>
+          <% if (doctor.weekly_hours?.length) { %>
+            <% const weekDays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']; %>
+            <div class="doctor-weekly-hours"><strong>Clinic hours this week</strong><ul><% doctor.weekly_hours.forEach((hour)=>{ %><li><%= weekDays[Number(hour.weekday)] %>: <%= hour.starts_at %>–<%= hour.ends_at %></li><% }) %></ul></div>
+          <% } %>
+          <% if (doctor.open_slots_this_week?.length) { %><div class="doctor-weekly-hours"><strong>Bookable times in the next 7 days</strong><ul><% doctor.open_slots_this_week.slice(0,3).forEach((slot)=>{ %><li><%= formatDateTime(slot.starts_at) %></li><% }) %></ul></div><% } else if (!doctor.weekly_hours?.length) { %><p class="muted doctor-weekly-empty">No weekly hours or bookable appointments posted</p><% } %>
+          <section class="doctor-online-option" aria-label="Online consultation">
+            <strong>Online consultation</strong>
+            <% if (doctor.online_booking_enabled) { %>
+              <span class="online-consult-badge"><span>● <%= doctor.online_available ? 'Accepting requests now' : 'Request a scheduled consultation' %></span><strong>₹<%= Number(doctor.online_rate || 0).toFixed(2) %>/min</strong></span>
+              <% if (videoConfigured && user?.role === 'patient') { %>
+                <a class="button primary" href="/consultations/new/<%= doctor.id %>">Request online consultation →</a>
+              <% } else if (videoConfigured && !user) { %>
+                <a class="button primary" href="/login?next=<%= encodeURIComponent('/consultations/new/' + doctor.id) %>">Sign in to request online →</a>
+              <% } else if (!videoConfigured) { %>
+                <p class="muted">Online booking is temporarily unavailable while video service setup is incomplete.</p>
+              <% } else { %>
+                <p class="muted">Patient account required to book an online consultation.</p>
+              <% } %>
+            <% } else { %>
+              <% if (!doctor.admin_online_enabled) { %>
+                <p class="muted">Online consultations are currently disabled by the administrator.</p>
+              <% } else if (!doctor.doctor_online_enabled) { %>
+                <p class="muted">This doctor has not enabled online requests yet. The doctor must turn on “Accept online consultation requests” in their Online consultations page.</p>
+              <% } else { %>
+                <p class="muted">This doctor cannot accept another request until the current consultation is finished.</p>
+              <% } %>
+              <a class="text-link" href="/doctors/<%= doctor.id %>#online-consultation">View online hours →</a>
+            <% } %>
+          </section>
+          <a class="text-link" href="/doctors/<%= doctor.id %>">View profile and available times →</a>
+        </article>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <article class="empty-card">
+      <div class="step-icon">⌕</div>
+      <h2>
+        <%= q || city ? 'No matching doctors yet' : 'The directory is ready for verified professionals' %>
+      </h2>
+      <p>
+        <%= q || city
+          ? 'Try another specialty or city.'
+          : 'Only email-verified doctors approved by an administrator appear here. Once approved, a doctor must publish available appointment times before patients can book.' %>
+      </p>
+      <% if (!user) { %>
+        <a class="button primary" href="/register">Join as a professional →</a>
+      <% } %>
+    </article>
+  <% } %>
+  <nav class="pagination" aria-label="Doctor pages"><% if(page>1){ %><a class="button quiet" href="/doctors?q=<%= encodeURIComponent(q) %>&city=<%= encodeURIComponent(city) %>&page=<%= page-1 %>">← Previous</a><% } %><span>Page <%= page %></span><% if(hasNext){ %><a class="button quiet" href="/doctors?q=<%= encodeURIComponent(q) %>&city=<%= encodeURIComponent(city) %>&page=<%= page+1 %>">Next →</a><% } %></nav>
+</main>
+
+<%- include('partials/footer') %>

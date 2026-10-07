@@ -1,0 +1,6 @@
+node_modules/
+.env
+npm-debug.log*
+var/pending-doctor-photos/
+var/private-medical-records/
+public/uploads/profiles/

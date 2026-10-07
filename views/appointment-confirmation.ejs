@@ -1,0 +1,23 @@
+<%- include('partials/header', { title: 'Appointment proof | HealthConnect Bharat' }) %>
+<main class="directory-wrap appointment-proof-wrap">
+  <a class="back-link" href="/dashboard#patient-appointments">← Back to my appointments</a>
+  <article class="panel appointment-proof">
+    <div class="proof-heading"><div><span class="eyebrow">Appointment type: Face to face · Clinic visit</span><h1>Appointment confirmation</h1></div><span class="proof-confirmed">✓ CONFIRMED</span></div>
+    <p class="proof-reference-label">Booking reference</p>
+    <p class="proof-reference"><%= appointment.booking_reference %></p>
+    <p class="fineprint">Show this confirmation and a photo ID when you arrive at the clinic.</p>
+
+    <div class="proof-details">
+      <section><h2>Patient</h2><strong><%= appointment.patient_name %></strong><p><%= appointment.patient_email %></p></section>
+      <section><h2>Doctor</h2><strong><%= appointment.doctor_name %></strong><p><%= appointment.specialization %><% if(appointment.qualification){ %> · <%= appointment.qualification %><% } %></p></section>
+      <section><h2>Date and time</h2><strong><%= formatDateTime(appointment.starts_at_utc) %></strong><p>Appointment duration: <%= Math.max(1,Math.round((new Date(`${appointment.ends_at_utc.replace(' ','T')}Z`)-new Date(`${appointment.starts_at_utc.replace(' ','T')}Z`))/60000)) %> minutes</p></section>
+      <section><h2>Clinic</h2><strong><%= appointment.clinic_name || appointment.doctor_name %></strong><p><%= appointment.clinic_location || 'Confirm the clinic address with the doctor before travel.' %></p></section>
+      <section><h2>Payment</h2><strong>₹<%= Number(appointment.payment_amount).toFixed(2) %></strong><p><%= appointment.payment_method==='CASH'?'Cash due at the clinic':appointment.payment_status==='PAID'?'Mock UPI payment recorded (demo only)':'Payment pending' %></p><% if(appointment.mock_payment_reference){ %><p>Demo reference: <%= appointment.mock_payment_reference %></p><% } %></section>
+      <section><h2>Reason for visit</h2><strong><%= appointment.reason %></strong></section>
+    </div>
+    <p class="proof-disclaimer">This is a booking confirmation, not a medical record or emergency-care document. For urgent care, contact local emergency services.</p>
+    <div class="proof-actions"><a class="button primary" href="/appointments/<%= appointment.id %>/proof.pdf" download>Download appointment proof PDF</a><button class="button quiet" type="button" data-print-proof>Print</button><a class="button quiet" href="/dashboard#patient-appointments">Return to dashboard</a></div>
+  </article>
+</main>
+<script src="/appointment-proof.js" defer></script>
+<%- include('partials/footer') %>

@@ -1,0 +1,87 @@
+<%- include('partials/header', { title: 'HealthConnect Bharat | Care, connected' }) %>
+
+<main>
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow"><span aria-hidden="true">♡ &nbsp;</span><span>Trusted care, made more human</span></span>
+      <h1>Healthcare that feels <em>simple</em>, human &amp; connected.</h1>
+      <p>Find trusted doctors, manage appointments, and keep your health details in one place.</p>
+
+      <div class="actions">
+        <a class="button primary" href="/doctors">Browse verified doctors <span>↗</span></a>
+        <a class="button quiet" href="/healthcare">Explore healthcare <span>→</span></a>
+      </div>
+
+      <form class="search-box" method="get" action="/doctors">
+          <span aria-hidden="true">⌕</span>
+          <input name="q" placeholder="Search doctors or specialties" aria-label="Search doctors or specialties">
+          <button class="button primary" type="submit">Search →</button>
+          <div class="popular">Popular: <a href="/doctors?q=Cardiology">Cardiology</a> · <a href="/doctors?q=Paediatrics">Paediatrics</a> · <a href="/doctors">All doctors</a></div>
+      </form>
+      <% if (!user) { %><p class="login-required-note">Browsing is open. Sign in with a patient account to request an appointment.</p><% } else { %><p class="login-required-note"><span>Welcome back,</span> <%= user.name %>. <span>Choose the next step in your care.</span></p><% } %>
+
+      <div class="social-proof">
+        <span class="avatars"><i>A</i><i>R</i><i>S</i><i>+</i></span>
+        <span>Helping people take the next step in care</span>
+      </div>
+    </div>
+
+    <div class="hero-art">
+      <div class="halo"></div>
+      <div class="care-card">
+        <div class="card-top"><span>YOUR CARE, IN VIEW</span><span class="live">● Ready</span></div>
+        <div class="doctor"><img class="doctor-avatar" src="/images/ashirwad-chandel.jpeg" alt="Photo of Ashirwad Chandel"><div><strong>Ashirwad Chandel</strong><small>HealthConnect Bharat demo profile</small></div></div>
+        <div class="appointment"><div class="row"><strong>Demo preview</strong><span class="tag">Sample</span></div><div class="appointment-info"><b class="date">✚</b><div><strong>Explore healthcare</strong><small>Find a verified professional for your care</small></div><a class="arrow" href="/doctors" aria-label="View doctors">›</a></div></div>
+        <div class="metrics"><div><b>Search</b><small>by specialty</small></div><div><b>Browse</b><small>by city</small></div><div><b>Choose</b><small>your next step</small></div></div>
+      </div>
+      <div class="float-note privacy"><b>◈</b><span><strong>Privacy first</strong><small>Your records stay yours</small></span></div>
+      <div class="float-note booking"><b>▦</b><span><strong>Easy to get started</strong><small>Your next step, made clear</small></span></div>
+      <div class="scribble">Care<br><em>connects</em></div>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div><b>Find</b><span>care near you</span></div>
+    <div><b>Choose</b><span>the right professional</span></div>
+    <div><b>Connect</b><span>your care journey</span></div>
+    <div><b>Secure</b><span>account access</span></div>
+  </section>
+
+  <section class="section" id="how">
+    <div class="section-heading">
+      <div><span class="eyebrow">A clearer path to care</span><h2>Care works better, <em>together.</em></h2></div>
+      <a class="text-link" href="/about">How it works →</a>
+    </div>
+    <div class="steps">
+      <article><span class="step-no">01</span><div class="step-icon">⌕</div><h3>Find your care</h3><p>Search verified healthcare professionals and discover options by specialty or city.</p></article>
+      <article><span class="step-no">02</span><div class="step-icon">▦</div><h3>Stay organised</h3><p>Keep your account details and care journey in one simple dashboard.</p></article>
+      <article><span class="step-no">03</span><div class="step-icon">♡</div><h3>Feel supported</h3><p>Know what to do next, with clear access to the people and services you need.</p></article>
+    </div>
+  </section>
+
+    <section class="directory-preview">
+      <div class="section-heading">
+        <div><span class="eyebrow">Meet your care team</span><h2>Find a doctor <em>near you.</em></h2></div>
+        <a class="text-link" href="/doctors">Browse doctors →</a>
+      </div>
+      <% if (directoryError) { %>
+        <article class="empty-card"><h3>Doctor directory unavailable</h3><p>Please try again in a moment.</p></article>
+      <% } else if (doctors.length) { %>
+        <div class="doctor-grid">
+          <% doctors.forEach((doctor) => { %>
+            <article class="doctor-card">
+              <div class="doctor-avatar"><img src="<%= doctor.profile_image_url || '/doctor-avatar.svg' %>" alt="Photo of <%= doctor.name %>"></div>
+              <h3><%= doctor.name %></h3>
+              <p><strong>Specialty:</strong> <%= doctor.specialization || 'Healthcare professional' %></p>
+              <span><strong>City:</strong> <%= doctor.city || 'India' %></span>
+              <a class="text-link" href="/doctors/<%= doctor.id %>">View profile and available times →</a>
+            </article>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <article class="empty-card"><div class="step-icon">✚</div><h3>Your care journey starts here</h3><p>Browse approved healthcare professionals and find someone who fits your needs.</p><a class="text-link" href="/doctors">Explore directory →</a></article>
+      <% } %>
+    </section>
+</main>
+
+<%- include('partials/footer') %>

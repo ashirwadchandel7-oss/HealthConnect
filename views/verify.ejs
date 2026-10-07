@@ -1,0 +1,56 @@
+<%- include('partials/header', { title: 'Verify email | HealthConnect Bharat' }) %>
+
+<main class="auth-layout single-auth">
+  <section class="auth-card">
+    <a class="back-link" href="/register">← Back to sign up</a>
+    <div class="auth-symbol">✉</div>
+    <span class="eyebrow">One quick check</span>
+    <h2>Verify your email</h2>
+    <p class="muted">
+      Enter the six-digit code for <strong><%= email %></strong>.
+      <% if (devOtp) { %>Development mode: no email was sent; use the local OTP shown below.<% } else { %>If Brevo accepts the message, check your Inbox and Spam. It expires in <%= otpTtlMinutes %> minutes.<% } %>
+      Your account is created after verification.
+    </p>
+
+    <% if (error) { %>
+      <div class="form-error" role="alert"><%= error %></div>
+    <% } %>
+
+    <form method="post" action="/verify-email" class="form-stack"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label for="verification-code">Verification code</label>
+      <input
+        id="verification-code"
+        name="code"
+        inputmode="numeric"
+        pattern="[0-9]{6}"
+        minlength="6"
+        maxlength="6"
+        autocomplete="one-time-code"
+        required
+        placeholder="000000"
+      >
+      <% if (devOtp) { %>
+        <p class="dev-code">Local development code: <strong><%= devOtp %></strong></p>
+      <% } %>
+      <button class="button primary full" type="submit">Verify email <span>→</span></button>
+    </form>
+
+    <form method="post" action="/verify-email/resend" class="resend-form"><input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button
+        class="text-link"
+        type="submit"
+        data-otp-countdown
+        data-seconds="<%= resendWaitSeconds || 0 %>"
+        data-ready-label="Resend code"
+        data-countdown-prefix="Resend code in "
+        <%= resendWaitSeconds > 0 ? 'disabled' : '' %>
+      >
+        <span data-countdown-label>Resend code</span>
+      </button>
+    </form>
+
+    <div class="auth-switch">Already verified? <a href="/login">Sign in</a></div>
+  </section>
+</main>
+
+<%- include('partials/footer') %>
