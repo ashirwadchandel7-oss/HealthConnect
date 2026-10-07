@@ -28,6 +28,10 @@ Run only one development server on port 3000 at a time. Stop it with Ctrl+C befo
 
 TiDB Cloud may require the computer's current public IP in its network access list. The database TLS certificate is verified by default. Do not turn off certificate verification to work around connection failures.
 
+## Profile photos across devices
+
+Profile images are stored in MySQL so they remain available after sign-in from another device or after a Render deploy. Apply migration 011 with `npm run db:migrate`. To transfer photos from an older local checkout, make sure its `.env` points to the same database and the ignored `public/uploads/profiles` files are still present, then run `npm run db:migrate-profile-photos`. The script only migrates files it can find; an unavailable old image must be uploaded again from the account's Profile page.
+
 ## Patient medical assistant (optional)
 
 The patient dashboard includes typed chat, browser voice dictation, and camera/gallery image attachments. To connect AI answers, choose an OpenAI-compatible chat-completions service and add `MEDICAL_AI_BASE_URL`, `MEDICAL_AI_API_KEY`, and `MEDICAL_AI_MODEL` to `.env`; use a model that accepts images if photo questions are needed. Keep the API key on the server. The assistant sends only the active conversation and selected image to that provider after the patient confirms the notice; HealthConnect does not store chat history or uploaded images. Voice dictation uses the browser's speech recognition and availability/privacy behavior depends on that browser. Without these settings, the interface displays a setup-needed notice and no external AI request is made.

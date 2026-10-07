@@ -160,10 +160,15 @@ const publicAccountRoutes = new Set([
 ]);
 app.use((req, res, next) => {
   if (publicAccountRoutes.has(`${req.method} ${req.path}`)) return next();
+  if (req.method === 'GET' && /^\/profile-images\/\d+$/.test(req.path)) return next();
   if (req.method === 'POST' && req.path === '/webhooks/livekit') return next();
   if (req.session.user) return next();
   return requireAuth(req, res, next);
 });
+
+// Doctor profile photos are public profile assets. Patient photos are private
+// and may only be seen by the patient or a doctor connected through care.
+app.get('/profile-images/:userId', readProfileImage);
 
 const authLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -225,14 +230,37 @@ async function storePendingDoctorPhoto(dataUrl) {
   return fileName;
 }
 
-async function saveDoctorProfilePhoto(dataUrl) {
+async function saveDoctorProfilePhoto(dataUrl, userId, userRole) {
   const image = decodeDoctorProfileImage(dataUrl);
   if (!image) throw new Error('Choose a valid JPG, JPEG, PNG or WebP photo no larger than 5 MB.');
-  const fileName = `${crypto.randomBytes(18).toString('hex')}.${image.extension}`;
-  const directory = path.join(__dirname, 'public', 'uploads', 'profiles');
-  await fs.mkdir(directory, { recursive: true });
-  await fs.writeFile(path.join(directory, fileName), image.buffer, { flag: 'wx' });
-  return `/uploads/profiles/${fileName}`;
+  const id = Number(userId);
+  if (!Number.isSafeInteger(id) || id < 1 || !['doctor', 'patient'].includes(userRole)) {
+    throw new Error('The profile photo owner could not be verified. Please sign in again.');
+  }
+  const photoUrl = `/profile-images/${id}`;
+  const mimeType = image.extension === 'jpg' || image.extension === 'jpeg'
+    ? 'image/jpeg'
+    : `image/${image.extension}`;
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.execute(
+      'INSERT INTO profile_images (user_id,mime_type,image_data) VALUES (?,?,?) ON DUPLICATE KEY UPDATE mime_type=VALUES(mime_type),image_data=VALUES(image_data),updated_at=CURRENT_TIMESTAMP',
+      [id, mimeType, image.buffer]
+    );
+    const [updated] = await connection.execute(
+      'UPDATE users SET profile_image_url=? WHERE id=? AND role=?',
+      [photoUrl, id, userRole]
+    );
+    if (!updated.affectedRows) throw new Error('The profile photo owner could not be verified. Please sign in again.');
+    await connection.commit();
+    return photoUrl;
+  } catch (error) {
+    await connection.rollback().catch(() => {});
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 async function removeDoctorProfilePhoto(photoUrl) {
@@ -243,6 +271,47 @@ async function removeDoctorProfilePhoto(photoUrl) {
   await fs.unlink(path.join(__dirname, 'public', 'uploads', 'profiles', match[1])).catch((error) => {
     if (error.code !== 'ENOENT') throw error;
   });
+}
+
+async function readProfileImage(req, res) {
+  const userId = Number(req.params.userId);
+  if (!Number.isSafeInteger(userId) || userId < 1) return res.sendStatus(404);
+  try {
+    const [owners] = await pool.execute('SELECT id,role FROM users WHERE id=? LIMIT 1', [userId]);
+    const owner = owners[0];
+    if (!owner) return res.sendStatus(404);
+
+    const viewer = req.session.user || null;
+    let allowed = owner.role === 'doctor' || Number(viewer?.id) === userId;
+    if (!allowed && owner.role === 'patient' && viewer?.role === 'doctor') {
+      const [appointments] = await pool.execute(
+        'SELECT 1 FROM appointments WHERE doctor_id=? AND patient_id=? LIMIT 1',
+        [viewer.id, userId]
+      );
+      if (appointments.length) allowed = true;
+      if (!allowed) {
+        const [consultations] = await pool.execute(
+          'SELECT 1 FROM consultations WHERE doctor_id=? AND patient_id=? LIMIT 1',
+          [viewer.id, userId]
+        );
+        allowed = consultations.length > 0;
+      }
+    }
+    if (!allowed) return res.sendStatus(404);
+
+    const [images] = await pool.execute(
+      'SELECT mime_type,image_data FROM profile_images WHERE user_id=? LIMIT 1',
+      [userId]
+    );
+    if (!images.length) return res.sendStatus(404);
+    res.set('Content-Type', images[0].mime_type);
+    res.set('Cache-Control', owner.role === 'doctor' ? 'public, max-age=300' : 'private, max-age=120');
+    res.set('X-Content-Type-Options', 'nosniff');
+    return res.send(images[0].image_data);
+  } catch (error) {
+    console.error('Profile image load failed:', error.message);
+    return res.sendStatus(404);
+  }
 }
 
 const safeReturnPath = (value) => {
@@ -648,6 +717,8 @@ app.post('/verify-email', authLimit, async (req, res) => {
   }
 
   let createdProfileImagePath = null;
+  let createdProfileImageBuffer = null;
+  let createdProfileImageMime = null;
   let newlyCreatedAccount = null;
   try {
     const verified = await consumeCode(email, 'verify', code, async (connection) => {
@@ -664,11 +735,9 @@ app.post('/verify-email', authLimit, async (req, res) => {
         if (!imageBuffer.length || imageBuffer.length > 2 * 1024 * 1024) {
           throw new Error('The doctor photo is invalid. Please return to sign up and choose another photo.');
         }
-        const fileName = `${crypto.randomBytes(18).toString('hex')}.${path.extname(pending.profileImageTempFile).slice(1)}`;
-        const uploadDirectory = path.join(__dirname, 'public', 'uploads', 'profiles');
-        await fs.mkdir(uploadDirectory, { recursive: true });
-        await fs.copyFile(pendingPhotoPath, path.join(uploadDirectory, fileName));
-        createdProfileImagePath = `/uploads/profiles/${fileName}`;
+        createdProfileImageBuffer = imageBuffer;
+        const extension = path.extname(pending.profileImageTempFile).slice(1).toLowerCase();
+        createdProfileImageMime = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
       }
       const accountValues = [
         pending.name,
@@ -712,6 +781,14 @@ app.post('/verify-email', authLimit, async (req, res) => {
       } else {
         const [updated] = await connection.execute('SELECT id FROM users WHERE email=? LIMIT 1', [email]);
         userId = updated[0]?.id;
+      }
+      if (createdProfileImageBuffer && userId) {
+        createdProfileImagePath = `/profile-images/${userId}`;
+        await connection.execute(
+          'INSERT INTO profile_images (user_id,mime_type,image_data) VALUES (?,?,?) ON DUPLICATE KEY UPDATE mime_type=VALUES(mime_type),image_data=VALUES(image_data),updated_at=CURRENT_TIMESTAMP',
+          [userId, createdProfileImageMime, createdProfileImageBuffer]
+        );
+        await connection.execute('UPDATE users SET profile_image_url=? WHERE id=?', [createdProfileImagePath, userId]);
       }
       if (pending.role !== 'patient' && userId) {
           await connection.execute(
@@ -763,7 +840,9 @@ app.post('/verify-email', authLimit, async (req, res) => {
     await new Promise((resolve, reject) => req.session.save((error) => error ? reject(error) : resolve()));
     return res.redirect('/');
   } catch (e) {
-    if (createdProfileImagePath) await fs.unlink(path.join(__dirname, 'public', createdProfileImagePath.slice(1))).catch(() => {});
+    if (createdProfileImagePath?.startsWith('/uploads/profiles/')) {
+      await fs.unlink(path.join(__dirname, 'public', createdProfileImagePath.slice(1))).catch(() => {});
+    }
     console.error('Account verification failed:', e.message);
     const duplicate = e.code === 'ER_DUP_ENTRY';
     return render(req, res, 'verify', {

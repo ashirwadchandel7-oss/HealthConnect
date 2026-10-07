@@ -353,12 +353,13 @@ module.exports = function registerHealthcareRoutes({ app, pool, requireAuth, req
 
       if (removePhoto) {
         await pool.execute('UPDATE users SET profile_image_url=NULL WHERE id=? AND role=?', [ownerId, ownerRole]);
+        await pool.execute('DELETE FROM profile_images WHERE user_id=?', [ownerId]);
         if (doctors[0].profile_image_url) await removeDoctorProfilePhoto(doctors[0].profile_image_url);
         setNotice(req, 'success', 'Profile photo removed. The default doctor avatar is now shown.');
         return res.redirect(redirectTo);
       }
 
-      const nextPhotoUrl = await saveDoctorProfilePhoto(imageData);
+      const nextPhotoUrl = await saveDoctorProfilePhoto(imageData, ownerId, ownerRole);
       savedPhotoUrl = nextPhotoUrl;
       await pool.execute(
         'UPDATE users SET profile_image_url=? WHERE id=? AND role=?',
