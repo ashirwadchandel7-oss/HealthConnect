@@ -148,6 +148,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// Keep the website behind authentication. Only account access and verification
+// pages are public; the signed LiveKit webhook is authenticated by its signature.
+const publicAccountRoutes = new Set([
+  'GET /',
+  'GET /register', 'POST /register',
+  'GET /login', 'POST /login',
+  'GET /verify-email', 'POST /verify-email', 'POST /verify-email/resend',
+  'GET /forgot-password', 'POST /forgot-password',
+  'GET /forgot-password/reset', 'POST /forgot-password/reset',
+]);
+app.use((req, res, next) => {
+  if (publicAccountRoutes.has(`${req.method} ${req.path}`)) return next();
+  if (req.method === 'POST' && req.path === '/webhooks/livekit') return next();
+  if (req.session.user) return next();
+  return requireAuth(req, res, next);
+});
+
 const authLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,

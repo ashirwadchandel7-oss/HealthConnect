@@ -21,7 +21,7 @@
     <nav class="nav" aria-label="Main navigation">
       <% if (!user) { %>
         <a href="/">Home</a><a href="/healthcare">Healthcare</a><a href="/doctors">Doctors</a><a href="/hospitals">Hospitals</a><a href="/about">About</a>
-        <a href="/login">Sign in</a><a class="nav-cta" href="/register">Create account <span>↗</span></a>
+        <a href="/login">Sign in</a>
       <% } else if (user.role === 'patient') { %>
         <a href="/">Home</a><a href="/doctors">Find a doctor</a><a href="/hospitals">Find a hospital</a><a href="/consultations">Online consultations</a><a href="/health-assistant">Health assistant</a><a href="/dashboard#patient-prescriptions">Prescriptions</a><a href="/dashboard#doctor-notifications">Notifications</a>
       <% } else if (user.role === 'doctor') { %>

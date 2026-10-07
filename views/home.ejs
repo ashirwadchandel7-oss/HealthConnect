@@ -8,7 +8,8 @@
       <p>Find trusted doctors, manage appointments, and keep your health details in one place.</p>
 
       <div class="actions">
-        <a class="button primary" href="/doctors">Browse verified doctors <span>↗</span></a>
+        <% if (!user) { %><a class="button primary" href="/register">Create account <span>→</span></a><% } %>
+        <a class="button quiet" href="/doctors">Browse verified doctors <span>↗</span></a>
         <a class="button quiet" href="/healthcare">Explore healthcare <span>→</span></a>
       </div>
 
