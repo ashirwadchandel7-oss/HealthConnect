@@ -2,9 +2,13 @@ const menuButton=document.querySelector('.menu-toggle');
 const mainNav=document.querySelector('.nav');
 const closeMenu=()=>{menuButton?.setAttribute('aria-expanded','false');mainNav?.classList.remove('open');};
 menuButton?.addEventListener('click',()=>{const open=menuButton.getAttribute('aria-expanded')==='true';menuButton.setAttribute('aria-expanded',String(!open));mainNav?.classList.toggle('open',!open);});
-document.addEventListener('pointerdown',(event)=>{
-  if(menuButton?.getAttribute('aria-expanded')==='true'&&!mainNav?.contains(event.target)&&!menuButton.contains(event.target))closeMenu();
-});
+const closeMenuWhenOutside=(event)=>{
+  const isOpen=menuButton?.getAttribute('aria-expanded')==='true'||mainNav?.classList.contains('open');
+  if(isOpen&&!mainNav?.contains(event.target)&&!menuButton?.contains(event.target))closeMenu();
+};
+// Capture the interaction so other page handlers cannot prevent outside taps from closing the menu.
+document.addEventListener('pointerdown',closeMenuWhenOutside,true);
+document.addEventListener('click',closeMenuWhenOutside,true);
 document.addEventListener('keydown',(event)=>{if(event.key==='Escape')closeMenu();});
 mainNav?.querySelectorAll('a').forEach(link=>link.addEventListener('click',closeMenu));
 
