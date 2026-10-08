@@ -24,9 +24,15 @@ HealthConnect Bharat is a healthcare discovery and appointment-request applicati
 
 5. Open `http://localhost:3000`.
 
+After updating this project, run `npm run db:migrate` to create the support inbox and reply tables from migrations 012 and 013.
+
 Run only one development server on port 3000 at a time. Stop it with Ctrl+C before starting it again. The first schema command creates the base `users` and `email_otps` tables. The migration command applies additive healthcare tables and records applied migration filenames in `schema_migrations`; repeat runs skip completed migrations. Review SQL and take a database backup before production migrations. No existing user rows are deleted by migration 001. Rollback should be a separately reviewed restore from backup; dropping healthcare tables may delete data created after migration.
 
 TiDB Cloud may require the computer's current public IP in its network access list. The database TLS certificate is verified by default. Do not turn off certificate verification to work around connection failures.
+
+## Contact admin and complaints
+
+The public `/contact` page accepts questions and complaints from guests and signed-in users. Administrators can review messages in the Contact inbox on `/admin`, send an email reply, and privately download optional PDF/JPG/PNG/WebP proof files up to 5 MB. Replies are sent using Brevo's HTTPS API when configured, otherwise SMTP, and delivery attempts are recorded. Admin accounts are limited to viewing and replying; they cannot submit contact tickets. Uploads are type-checked on the server and stored in MySQL; only administrators can download them. The form is not for emergencies, and users should avoid attaching unnecessary sensitive medical records.
 
 ## Profile photos across devices
 

@@ -483,18 +483,23 @@ document.querySelectorAll('form[data-utc-datetime]').forEach(form=>form.addEvent
 document.querySelectorAll('form[data-private-upload]').forEach(form=>{
   const fileInput=form.querySelector('[data-private-file]');
   const dataInput=form.querySelector('[data-private-file-data]');
+  const nameInput=form.querySelector('[data-private-file-name]');
+  const fileNameLabel=form.querySelector('[data-contact-file-name]');
   if(!fileInput||!dataInput)return;
   let reading=false;
   fileInput.addEventListener('change',()=>{
     const file=fileInput.files?.[0];
     dataInput.value='';
+    if(nameInput)nameInput.value='';
+    if(fileNameLabel)fileNameLabel.textContent=file?.name||'No file selected';
     if(!file)return;
     const supported=['application/pdf','image/jpeg','image/png','image/webp'];
-    if(!supported.includes(file.type)||file.size>5*1024*1024){fileInput.value='';window.alert('Choose a PDF, JPG, PNG or WebP file up to 5 MB.');return;}
+    if(!supported.includes(file.type)||file.size>5*1024*1024){fileInput.value='';if(fileNameLabel)fileNameLabel.textContent='No file selected';window.alert('Choose a PDF, JPG, PNG or WebP file up to 5 MB.');return;}
+    if(nameInput)nameInput.value=file.name;
     reading=true;
     const reader=new FileReader();
     reader.onload=()=>{dataInput.value=typeof reader.result==='string'?reader.result:'';reading=false;};
-    reader.onerror=()=>{reading=false;fileInput.value='';window.alert('The document could not be read. Please choose it again.');};
+    reader.onerror=()=>{reading=false;fileInput.value='';dataInput.value='';if(nameInput)nameInput.value='';if(fileNameLabel)fileNameLabel.textContent='No file selected';window.alert('The document could not be read. Please choose it again.');};
     reader.readAsDataURL(file);
   });
   form.addEventListener('submit',event=>{if(reading||(fileInput.files?.length&&!dataInput.value)){event.preventDefault();window.alert('Wait for the document to finish loading, then save again.');}});

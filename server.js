@@ -48,13 +48,13 @@ const mailer =
     : null;
 const brevoApiKey = process.env.BREVO_API_KEY || '';
 
-async function sendBrevoApiEmail({ email, purpose, code, ttl }) {
-  const subject = purpose === 'verify'
+async function sendBrevoApiEmail({ email, purpose, code, ttl, customSubject, customText }) {
+  const subject = customSubject || (purpose === 'verify'
     ? 'Verify your HealthConnect Bharat account'
     : purpose === 'profile'
       ? 'Confirm your doctor profile changes'
-      : 'Reset your HealthConnect Bharat password';
-  const textContent = `${purpose === 'profile' ? 'Confirm your doctor profile changes with this code' : 'Your verification code is'}: ${code}. It expires in ${ttl} minutes. If you did not request this, ignore this email.`;
+      : 'Reset your HealthConnect Bharat password');
+  const textContent = customText || `${purpose === 'profile' ? 'Confirm your doctor profile changes with this code' : 'Your verification code is'}: ${code}. It expires in ${ttl} minutes. If you did not request this, ignore this email.`;
   const response = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -80,6 +80,21 @@ async function sendBrevoApiEmail({ email, purpose, code, ttl }) {
     throw error;
   }
   return { delivery: 'api', messageId: result.messageId };
+}
+
+async function sendContactReply({ email, subject, text }) {
+  if (brevoApiKey) return sendBrevoApiEmail({ email, customSubject: subject, customText: text });
+  if (!mailer) throw new Error('Email delivery is not configured. Add BREVO_API_KEY or SMTP credentials.');
+  const delivery = await mailer.sendMail({
+    from: `${process.env.SMTP_FROM_NAME || 'HealthConnect Bharat'} <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+    to: email,
+    subject,
+    text,
+  });
+  const accepted = Array.isArray(delivery.accepted)
+    && delivery.accepted.some((address) => String(address).toLowerCase() === email.toLowerCase());
+  if (!accepted) throw new Error('SMTP server did not accept the reply recipient.');
+  return { delivery: 'smtp', messageId: delivery.messageId };
 }
 
 app.set('view engine', 'ejs');
@@ -192,6 +207,7 @@ const publicAccountRoutes = new Set([
   'GET /verify-email', 'POST /verify-email', 'POST /verify-email/resend',
   'GET /forgot-password', 'POST /forgot-password',
   'GET /forgot-password/reset', 'POST /forgot-password/reset',
+  'GET /contact', 'POST /contact',
 ]);
 app.use((req, res, next) => {
   if (publicAccountRoutes.has(`${req.method} ${req.path}`)) return next();
@@ -1324,6 +1340,7 @@ app.get('/about', (req, res) => render(req, res, 'about'));
 require('./routes/consultations')({app,pool,requireAuth,requireRole,authLimit});
 require('./routes/healthcare')({app,pool,requireAuth,requireRole,authLimit,setNotice,saveDoctorProfilePhoto,removeDoctorProfilePhoto,doctorQualifications,doctorSpecialties,sendCode,consumeCode,getResendWaitSeconds});
 require('./routes/patient-medical-assistant')({app,requireRole,authLimit});
+require('./routes/contact')({app,pool,requireRole,authLimit,setNotice,sendContactReply});
 
 // 9. 404 - नॉट फाउंड
 app.use((req, res) => {

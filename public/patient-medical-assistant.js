@@ -27,8 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let nativeListening = false;
   let nativePrefix = '';
   let nativeFinalText = '';
+  let nativeResultParts = [];
+  let voiceStarting = false;
   let nativeError = '';
   let nativeTimer = null;
+  let activeSpeechButton = null;
 
   const resetVoiceButton = () => {
     voiceButton.disabled = false;
@@ -43,21 +46,35 @@ document.addEventListener('DOMContentLoaded', () => {
     nativeListening = true;
     nativePrefix = message.value.trim();
     nativeFinalText = '';
+    nativeResultParts = [];
     nativeError = '';
     recognition.lang = voiceLanguage.value;
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognition.onresult = (event) => {
-      const finalParts = [];
-      const interimParts = [];
+      // SpeechRecognition returns a cumulative results list. Rebuild from its
+      // indexed results instead of appending each event, or some browsers
+      // repeat already-finalized words on later callbacks.
       for (let index = 0; index < event.results.length; index += 1) {
         const result = event.results[index];
         const text = String(result?.[0]?.transcript || '').trim();
-        if (!text) continue;
-        if (result.isFinal) finalParts.push(text);
-        else interimParts.push(text);
+        nativeResultParts[index] = { text, isFinal: Boolean(result?.isFinal) };
       }
+      nativeResultParts.length = event.results.length;
+      const finalParts = [];
+      const interimParts = [];
+      let previousNormalized = '';
+      nativeResultParts.forEach((part) => {
+        const text = String(part?.text || '').trim();
+        if (!text) return;
+        const normalized = text.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+        // Some recognition services emit the same phrase in adjacent result
+        // entries. Keep the first copy while preserving distinct phrases.
+        if (normalized && normalized === previousNormalized) return;
+        previousNormalized = normalized;
+        (part.isFinal ? finalParts : interimParts).push(text);
+      });
       nativeFinalText = finalParts.join(' ').trim();
       const spokenText = [nativeFinalText, interimParts.join(' ').trim()].filter(Boolean).join(' ');
       message.value = [nativePrefix, spokenText].filter(Boolean).join(' ').slice(0, 4000);
@@ -113,6 +130,42 @@ document.addEventListener('DOMContentLoaded', () => {
     log.append(bubble);
     log.scrollTop = log.scrollHeight;
     return bubble;
+  };
+
+  const addReadAloudButton = (bubble, answer) => {
+    if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'medical-chat-read-aloud';
+    button.textContent = '🔊 Listen';
+    button.setAttribute('aria-label', 'Listen to this AI response');
+    button.addEventListener('click', () => {
+      if (activeSpeechButton === button && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        button.textContent = '🔊 Listen';
+        button.setAttribute('aria-label', 'Listen to this AI response');
+        activeSpeechButton = null;
+        return;
+      }
+      window.speechSynthesis.cancel();
+      if (activeSpeechButton) {
+        activeSpeechButton.textContent = '🔊 Listen';
+        activeSpeechButton.setAttribute('aria-label', 'Listen to this AI response');
+      }
+      const utterance = new SpeechSynthesisUtterance(answer);
+      utterance.lang = voiceLanguage?.value || 'en-IN';
+      utterance.onend = utterance.onerror = () => {
+        if (activeSpeechButton !== button) return;
+        button.textContent = '🔊 Listen';
+        button.setAttribute('aria-label', 'Listen to this AI response');
+        activeSpeechButton = null;
+      };
+      activeSpeechButton = button;
+      button.textContent = '■ Stop audio';
+      button.setAttribute('aria-label', 'Stop reading this AI response');
+      window.speechSynthesis.speak(utterance);
+    });
+    bubble.append(button);
   };
 
   const chooseImage = (file) => {
@@ -201,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try { nativeRecognition.stop(); } catch { try { nativeRecognition.abort(); } catch {} }
       return;
     }
+    if (voiceStarting || nativeListening || recorder?.state === 'recording') return;
     if (recorder?.state === 'recording') {
       clearTimeout(recordingTimer);
       voiceButton.disabled = true;
@@ -232,6 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     voiceButton.disabled = true;
+    voiceStarting = true;
     status.textContent = 'Requesting microphone access…';
     try {
       recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -245,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recordingStream?.getTracks().forEach((track) => track.stop());
         recordingStream = null;
         recorder = null;
+        voiceStarting = false;
         voiceButton.disabled = false;
         voiceButton.textContent = '🎙 Speak';
         voiceButton.setAttribute('aria-pressed', 'false');
@@ -254,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recordingStream?.getTracks().forEach((track) => track.stop());
         recordingStream = null;
         recorder = null;
+        voiceStarting = false;
         const audioBlob = new Blob(chunks, { type: audioRecorder.mimeType || 'audio/webm' });
         if (!audioBlob.size) {
           status.textContent = 'No audio was recorded. Check your microphone and try again.';
@@ -305,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }, { once: true });
       audioRecorder.start();
+      voiceStarting = false;
       voiceButton.disabled = false;
       voiceButton.textContent = '■ Stop & add text';
       voiceButton.setAttribute('aria-pressed', 'true');
@@ -321,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
       recordingStream?.getTracks().forEach((track) => track.stop());
       recordingStream = null;
       recorder = null;
+      voiceStarting = false;
       voiceButton.disabled = false;
       voiceButton.textContent = '🎙 Speak';
       voiceButton.setAttribute('aria-pressed', 'false');
@@ -379,6 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const answer = typeof result.answer === 'string' ? result.answer.trim() : '';
       if (!answer) throw new Error('The AI service returned an empty answer. Please try again.');
       responseBubble.textContent = answer;
+      addReadAloudButton(responseBubble, answer);
       log.scrollTop = log.scrollHeight;
       history.push({ role: 'user', content: text || 'Please help me understand this image.' });
       history.push({ role: 'assistant', content: answer });

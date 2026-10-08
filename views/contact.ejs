@@ -1,0 +1,45 @@
+<%- include('partials/header', { title: 'Contact HealthConnect Bharat' }) %>
+<main class="directory-wrap contact-wrap">
+  <section class="contact-intro">
+    <span class="eyebrow">Help &amp; complaints</span>
+    <h1>How can we <em>help?</em></h1>
+    <p>Send a question, report a problem, or submit a complaint to the HealthConnect Bharat admin team. You can attach one proof file if it helps explain the issue.</p>
+  </section>
+
+  <section class="panel contact-panel">
+    <a class="back-link" href="/">← Back to home</a>
+    <h2>Message the admin team</h2>
+    <% if (error) { %><div class="form-error" role="alert"><%= error %></div><% } %>
+    <form method="post" action="/contact" class="form-stack" data-private-upload>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <% if (user) { %>
+        <div class="contact-signed-in"><strong>Sending as <%= user.name %></strong><span><%= user.email %><% if(user.role){ %> · <%= roles[user.role] || user.role %><% } %></span></div>
+      <% } else { %>
+        <div class="two-col">
+          <label>Your name<input name="name" required minlength="2" maxlength="120" autocomplete="name" value="<%= form.name || '' %>"></label>
+          <label>Email address<input type="email" name="email" required maxlength="254" autocomplete="email" value="<%= form.email || '' %>"></label>
+        </div>
+        <label>Phone number <span class="muted">(optional)</span><input type="tel" name="phone" maxlength="32" autocomplete="tel" value="<%= form.phone || '' %>"></label>
+      <% } %>
+      <label>What do you need help with?
+        <select name="category" required>
+          <option value="account" <%= form.category==='account'?'selected':'' %>>Account or sign-in</option>
+          <option value="appointment" <%= form.category==='appointment'?'selected':'' %>>Appointment or consultation</option>
+          <option value="technical" <%= form.category==='technical'?'selected':'' %>>Website problem</option>
+          <option value="complaint" <%= form.category==='complaint'?'selected':'' %>>Complaint</option>
+          <option value="other" <%= form.category==='other'?'selected':'' %>>Other question</option>
+        </select>
+      </label>
+      <label>Your message<textarea name="message" minlength="10" maxlength="5000" rows="7" required placeholder="Describe what happened and what help you need."><%= form.message || '' %></textarea></label>
+      <label>Upload proof <span class="muted">(optional, one file up to 5 MB)</span>
+        <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" data-private-file>
+        <input type="hidden" name="evidenceData" data-private-file-data>
+        <input type="hidden" name="evidenceName" data-private-file-name>
+        <small class="contact-file-name" data-contact-file-name>No file selected</small>
+      </label>
+      <p class="fineprint contact-note">Accepted files: PDF, JPG, PNG or WebP. Only administrators can access submitted messages and proof. Please do not upload unnecessary medical records or highly sensitive information. This form is not for emergencies.</p>
+      <button class="button primary full" type="submit">Send message to admin <span aria-hidden="true">→</span></button>
+    </form>
+  </section>
+</main>
+<%- include('partials/footer') %>

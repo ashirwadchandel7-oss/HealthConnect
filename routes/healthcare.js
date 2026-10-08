@@ -637,7 +637,29 @@ module.exports = function registerHealthcareRoutes({ app, pool, requireAuth, req
     const [affiliations] = await pool.execute(`SELECT af.id,af.status,d.name AS doctor_name,d.email AS doctor_email,h.registered_name AS hospital_name,h.user_id AS hospital_user_id
       FROM doctor_hospital_affiliations af JOIN users d ON d.id=af.doctor_id JOIN hospitals h ON h.user_id=af.hospital_user_id
       WHERE af.status='PENDING' ORDER BY af.created_at LIMIT 100`);
-    res.render('admin', { providers, stats: stats[0], users, affiliations });
+    const [contactMessages] = await pool.execute(
+      `SELECT m.id,m.user_id,m.sender_role,m.sender_name,m.sender_email,m.sender_phone,m.category,m.message,m.status,m.created_at,
+       e.original_name AS evidence_name,e.mime_type AS evidence_mime,e.file_size AS evidence_size
+       FROM contact_messages m LEFT JOIN contact_message_evidence e ON e.message_id=m.id
+       ORDER BY CASE m.status WHEN 'OPEN' THEN 0 WHEN 'IN_PROGRESS' THEN 1 ELSE 2 END,m.created_at DESC LIMIT 100`
+    );
+    if (contactMessages.length) {
+      const ids = contactMessages.map((message) => Number(message.id));
+      const placeholders = ids.map(() => '?').join(',');
+      const [contactReplies] = await pool.execute(
+        `SELECT id,message_id,reply_text,delivery_status,created_at FROM contact_message_replies WHERE message_id IN (${placeholders}) ORDER BY created_at`,
+        ids
+      );
+      const repliesByMessage = new Map();
+      for (const reply of contactReplies) {
+        if (!repliesByMessage.has(Number(reply.message_id))) repliesByMessage.set(Number(reply.message_id), []);
+        repliesByMessage.get(Number(reply.message_id)).push(reply);
+      }
+      for (const message of contactMessages) message.replies = repliesByMessage.get(Number(message.id)) || [];
+    } else {
+      for (const message of contactMessages) message.replies = [];
+    }
+    res.render('admin', { providers, stats: stats[0], users, affiliations, contactMessages });
   });
 
   post('/admin/affiliations/:id/review', requireRole('admin'), authLimit, async (req, res) => {
