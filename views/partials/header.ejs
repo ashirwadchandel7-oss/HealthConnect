@@ -14,7 +14,7 @@
         <span class="brand-icon">✚</span>
         <span>HealthConnect<small>BHARAT 2.0</small></span>
       </a>
-      <% if (currentPath !== '/') { %><button class="back-button" type="button" data-back-button data-back-fallback="/">← Back</button><% } %>
+      <% if (typeof currentPath === 'undefined' || currentPath !== '/') { %><button class="back-button" type="button" data-back-button data-back-fallback="/">← Back</button><% } %>
     </div>
     <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
 

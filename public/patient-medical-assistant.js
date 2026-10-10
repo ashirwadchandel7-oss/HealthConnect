@@ -438,6 +438,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const answer = typeof result.answer === 'string' ? result.answer.trim() : '';
       if (!answer) throw new Error('The AI service returned an empty answer. Please try again.');
       responseBubble.textContent = answer;
+      if (result.visionPrediction) {
+        const predictionNotice = document.createElement('p');
+        predictionNotice.className = 'medical-chat-vision-result';
+        predictionNotice.textContent = result.visionPrediction.label
+          ? 'Roboflow model match: ' + result.visionPrediction.label + ' (model score ' + (Number(result.visionPrediction.confidence) * 100).toFixed(1) + '%). This is not a diagnosis.'
+          : 'Roboflow did not find a clear match. This model cannot diagnose a condition.';
+        responseBubble.append(predictionNotice);
+      }
       addReadAloudButton(responseBubble, answer);
       log.scrollTop = log.scrollHeight;
       history.push({ role: 'user', content: text || 'Please help me understand this image.' });

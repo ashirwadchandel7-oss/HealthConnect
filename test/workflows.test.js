@@ -218,6 +218,33 @@ test('doctor acceptance requires an exact India-time appointment and call access
   assert.match(view,/data-join-call/);
 });
 
+test('video consultation attaches remote audio and video and supports browsers that block autoplay', () => {
+  const client=fs.readFileSync(path.join(__dirname,'../public/consultation-room.js'),'utf8');
+  const view=fs.readFileSync(path.join(__dirname,'../views/consultation-detail.ejs'),'utf8');
+  assert.match(client,/track\.kind==='video'/);
+  assert.match(client,/track\.kind==='audio'/);
+  assert.match(client,/TrackUnsubscribed/);
+  assert.match(client,/TrackSubscriptionFailed/);
+  assert.match(client,/RoomEvent\.AudioPlaybackStatusChanged/);
+  assert.match(client,/room\.startAudio\(\)/);
+  assert.match(view,/data-enable-audio/);
+});
+
+test('video token route reports missing LiveKit hosting configuration as a setup error', () => {
+  const route=fs.readFileSync(path.join(__dirname,'../routes/consultations.js'),'utf8');
+  const tokenRoute=route.slice(route.indexOf("post('/consultations/:id/token'"),route.indexOf("post('/consultations/:id/joined'"));
+  assert.match(tokenRoute,/if \(!consultation\) return res\.status\(404\)/);
+  assert.match(tokenRoute,/if \(!isConfigured\(\)\) return res\.status\(503\)/);
+  assert.match(tokenRoute,/LIVEKIT_API_SECRET in the hosting environment/);
+});
+
+test('scheduled call button explains a missing schedule or failed status check and refreshes frequently', () => {
+  const client=fs.readFileSync(path.join(__dirname,'../public/consultation-room.js'),'utf8');
+  assert.match(client,/The doctor has not set an appointment time yet/);
+  assert.match(client,/Appointment status could not be checked/);
+  assert.match(client,/setInterval\(refreshAppointmentState,5000\)/);
+});
+
 test('doctor dashboard reports actual LiveKit setup and links to availability controls', () => {
   const server=fs.readFileSync(path.join(__dirname,'../server.js'),'utf8');
   const dashboard=fs.readFileSync(path.join(__dirname,'../views/dashboard.ejs'),'utf8');

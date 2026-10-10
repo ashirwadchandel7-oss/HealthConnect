@@ -1215,6 +1215,9 @@ async function renderDashboard(req, res, doctorWorkspace = false, profileOnly = 
       } else prescription.medicines = prescription.medicines_json || [];
     }
     const provider = providerResult[0][0] || null;
+    const earlyDetectionResults = role === 'patient'
+      ? (await pool.execute('SELECT id,condition_key,predicted_class,confidence,created_at FROM early_detection_predictions WHERE patient_id=? ORDER BY created_at DESC LIMIT 50', [userId]))[0]
+      : [];
     const doctorStats = doctorStatsResult[0][0] || {total:0,completed:0,pending:0,today:0,upcoming:0};
     const doctorProfileCompletion = role === 'doctor'
       ? Math.round([rows[0].name, rows[0].profile_image_url, rows[0].specialization, rows[0].qualification, rows[0].registration_number, rows[0].city, provider?.registration_authority, provider?.years_experience, provider?.practice_address, rows[0].organization].filter(Boolean).length / 10 * 100)
@@ -1222,7 +1225,7 @@ async function renderDashboard(req, res, doctorWorkspace = false, profileOnly = 
     const videoConfigured=Boolean(process.env.PAYMENT_MODE==='MOCK'&&process.env.LIVEKIT_URL&&process.env.LIVEKIT_API_KEY&&process.env.LIVEKIT_API_SECRET);
     const medicalAiValues=[process.env.MEDICAL_AI_BASE_URL,process.env.MEDICAL_AI_API_KEY,process.env.MEDICAL_AI_MODEL].map(value=>String(value||'').trim());
     const medicalAiConfigured=medicalAiValues.every(value=>value&&!/(your[-_ ]|placeholder|replace[-_ ]|example|changeme)/i.test(value))&&/^https:\/\//i.test(medicalAiValues[0]);
-    render(req,res,'dashboard',{profile:rows[0],provider:provider||null,appointments,records:records[0],prescriptions:prescriptions[0],notifications:notifications[0],availability:availability[0],patientAvailableSlots:patientAvailableSlots[0],doctorPrescriptions:doctorPrescriptions[0],doctorStats,doctorPatients:doctorPatients[0],doctorRecords:doctorRecords[0],doctorUpcoming:doctorUpcoming[0],doctorMessages:doctorMessages[0],patientMessages:patientMessages[0],doctorActivity:doctorActivity[0],doctorHospitals:doctorHospitals[0],doctorAffiliations:doctorAffiliations[0],weeklySchedule:weeklySchedule[0],unavailableDates:unavailableDates[0],doctorPaymentProfile:doctorPaymentProfileResult[0][0]||null,doctorProfileCompletion,doctorQualifications,doctorSpecialties,cancellationCutoffHours:Math.min(168,Math.max(0,Number(process.env.CANCELLATION_CUTOFF_HOURS||24))),videoConfigured,medicalAiConfigured,doctorWorkspace,profileOnly,sectionOnly});
+    render(req,res,'dashboard',{profile:rows[0],provider:provider||null,appointments,records:records[0],prescriptions:prescriptions[0],notifications:notifications[0],availability:availability[0],patientAvailableSlots:patientAvailableSlots[0],doctorPrescriptions:doctorPrescriptions[0],doctorStats,doctorPatients:doctorPatients[0],doctorRecords:doctorRecords[0],doctorUpcoming:doctorUpcoming[0],doctorMessages:doctorMessages[0],patientMessages:patientMessages[0],doctorActivity:doctorActivity[0],doctorHospitals:doctorHospitals[0],doctorAffiliations:doctorAffiliations[0],weeklySchedule:weeklySchedule[0],unavailableDates:unavailableDates[0],doctorPaymentProfile:doctorPaymentProfileResult[0][0]||null,doctorProfileCompletion,doctorQualifications,doctorSpecialties,cancellationCutoffHours:Math.min(168,Math.max(0,Number(process.env.CANCELLATION_CUTOFF_HOURS||24))),videoConfigured,medicalAiConfigured,earlyDetectionConfigured:Boolean(process.env.MODEL_API_BASE_URL),earlyDetectionResults,doctorWorkspace,profileOnly,sectionOnly});
   } catch (e) {
     console.error('Dashboard load failed:', e.message);
     res.status(503).send('Dashboard data is temporarily unavailable. Check that database migrations have been applied.');
@@ -1340,6 +1343,7 @@ app.get('/about', (req, res) => render(req, res, 'about'));
 require('./routes/consultations')({app,pool,requireAuth,requireRole,authLimit});
 require('./routes/healthcare')({app,pool,requireAuth,requireRole,authLimit,setNotice,saveDoctorProfilePhoto,removeDoctorProfilePhoto,doctorQualifications,doctorSpecialties,sendCode,consumeCode,getResendWaitSeconds});
 require('./routes/patient-medical-assistant')({app,requireRole,authLimit});
+require('./routes/patient-early-detection')({app,pool,requireRole,authLimit});
 require('./routes/contact')({app,pool,requireRole,authLimit,setNotice,sendContactReply});
 
 // 9. 404 - नॉट फाउंड

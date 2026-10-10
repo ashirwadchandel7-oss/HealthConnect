@@ -35,6 +35,62 @@ function decodeMedicalAudio(dataUrl) {
   return valid ? { mimeType, data: buffer.toString('base64') } : null;
 }
 
+function topRoboflowPrediction(payload) {
+  const raw = payload?.predictions;
+  let candidates = Array.isArray(raw) ? raw : [];
+  if (raw && !Array.isArray(raw) && typeof raw === 'object') {
+    candidates = Object.entries(raw).map(([label, value]) => ({
+      ...(value && typeof value === 'object' ? value : { confidence: value }),
+      class: label,
+    }));
+  }
+  if (!candidates.length && typeof payload?.top === 'string') {
+    candidates = [{ class: payload.top, confidence: payload.confidence }];
+  }
+  const normalized = candidates.map((item) => ({
+    label: String(item?.class || item?.class_name || item?.label || item?.name || '').trim().slice(0, 120),
+    confidence: Number(item?.confidence ?? item?.class_confidence),
+  })).filter((item) => item.label && Number.isFinite(item.confidence) && item.confidence >= 0 && item.confidence <= 1);
+  normalized.sort((a, b) => b.confidence - a.confidence);
+  return normalized[0] || null;
+}
+
+async function predictMedicalImageWithRoboflow(image) {
+  const apiKey = String(process.env.ROBOFLOW_API_KEY || '').trim();
+  const modelId = String(process.env.ROBOFLOW_MODEL_ID || '').trim();
+  if (!apiKey || !modelId || /placeholder|your[-_ ]|replace[-_ ]|example|changeme/i.test(apiKey + ' ' + modelId)) {
+    const error = new Error('Roboflow image model is not configured.');
+    error.code = 'ROBOFLOW_NOT_CONFIGURED';
+    throw error;
+  }
+  const match = /^([a-zA-Z0-9_-]+)\/([1-9]\d*)$/.exec(modelId);
+  if (!match) {
+    const error = new Error('ROBOFLOW_MODEL_ID must use project-name/version format.');
+    error.code = 'ROBOFLOW_INVALID_MODEL_ID';
+    throw error;
+  }
+  const project = encodeURIComponent(match[1]);
+  const version = encodeURIComponent(match[2]);
+  const endpoint = new URL('https://serverless.roboflow.com/' + project + '/' + version);
+  endpoint.searchParams.set('api_key', apiKey);
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: image.buffer.toString('base64'),
+    signal: AbortSignal.timeout(30000),
+  });
+  const raw = await response.text();
+  let result = {};
+  try { result = raw ? JSON.parse(raw) : {}; } catch {}
+  if (!response.ok) {
+    const error = new Error('Roboflow returned HTTP ' + response.status + '.');
+    error.code = 'ROBOFLOW_REQUEST_FAILED';
+    error.status = response.status;
+    throw error;
+  }
+  return topRoboflowPrediction(result);
+}
+
 module.exports = function registerPatientMedicalAssistant({ app, requireRole, authLimit }) {
   app.post('/api/patient/medical-assistant/transcribe', requireRole('patient'), authLimit, async (req, res) => {
     res.set('Cache-Control', 'no-store');
@@ -104,6 +160,31 @@ module.exports = function registerPatientMedicalAssistant({ app, requireRole, au
     const image = imageData ? decodeMedicalImage(imageData) : null;
     if (imageData && !image) return res.status(400).json({ error: 'Image must be a valid JPG, PNG or WebP file under 5 MB.' });
 
+    let visionPrediction = null;
+    if (image) {
+      try {
+        visionPrediction = await predictMedicalImageWithRoboflow(image);
+      } catch (error) {
+        const requestId = crypto.randomBytes(4).toString('hex');
+        console.error('Roboflow medical image request ' + requestId + ' failed:', error.code || error.name, error.status || '');
+        const message = error.code === 'ROBOFLOW_NOT_CONFIGURED'
+          ? 'Photo analysis is not connected yet. Add ROBOFLOW_API_KEY and ROBOFLOW_MODEL_ID after training your Roboflow model.'
+          : error.code === 'ROBOFLOW_INVALID_MODEL_ID'
+            ? 'ROBOFLOW_MODEL_ID must be project-name/version, for example my-project/1.'
+            : error.name === 'TimeoutError' || error.name === 'AbortError'
+              ? 'Roboflow image analysis took too long. Try again with a smaller photo.'
+              : error.status === 403
+                ? 'Roboflow rejected the API key. Check that ROBOFLOW_API_KEY is valid and allowed to run model inference.'
+                : error.status === 404
+                  ? 'Roboflow could not find that model version. Copy the project/version from the HTTP / CURL request URL.'
+                  : error.status === 429
+                    ? 'Roboflow rate or credit limit was reached. Check your Roboflow plan and try again later.'
+                    : 'Roboflow could not analyze this photo (HTTP ' + (error.status || 'network error') + '). Check the model deployment and try again.';
+        const status = error.code === 'ROBOFLOW_NOT_CONFIGURED' || error.code === 'ROBOFLOW_INVALID_MODEL_ID' ? 503 : 502;
+        return res.status(status).json({ error: message });
+      }
+    }
+
     const baseUrl = String(process.env.MEDICAL_AI_BASE_URL || '').trim().replace(/\/+$/, '');
     const apiKey = String(process.env.MEDICAL_AI_API_KEY || '').trim();
     const model = String(process.env.MEDICAL_AI_MODEL || '').trim();
@@ -136,10 +217,15 @@ module.exports = function registerPatientMedicalAssistant({ app, requireRole, au
       });
     } catch {}
 
+    const roboflowContext = image
+      ? visionPrediction
+        ? 'Roboflow visual model prediction: "' + visionPrediction.label + '" with confidence ' + (visionPrediction.confidence * 100).toFixed(1) + '%. This is only a model prediction, not a diagnosis.'
+        : 'Roboflow did not return a clear class for this image. Do not guess a disease from the image.'
+      : '';
     const userContent = image
-      ? [{ type: 'text', text: message || 'Please describe this image in a health-information context. Do not diagnose.' }, { type: 'image_url', image_url: { url: image.dataUrl } }]
+      ? (message || 'Please explain the image model result in simple health-information terms.') + '\n\n' + roboflowContext
       : message;
-    const systemPrompt = 'You are a careful patient health-information assistant. Reply in the same language as the latest user message (Hindi, Hinglish, or English) and use clear, simple wording. Answer the actual question directly, then give short practical next steps. Do not diagnose, claim certainty from a photo, prescribe or change medication, interpret an image as a definitive test, or replace a clinician. Ask concise follow-up questions only when needed. Mention urgent in-person care for severe or rapidly worsening symptoms. Do not claim to have reviewed records unless the user provided them in this chat. Keep answers calm and concise.';
+    const systemPrompt = 'You are a careful patient health-information assistant. Reply in the same language as the latest user message (Hindi, Hinglish, or English) and use clear, simple wording. Answer the actual question directly, then give short practical next steps. If Roboflow visual model output is included, describe it only as an uncertain model prediction, never as a confirmed disease or diagnosis. Do not diagnose, prescribe or change medication, interpret an image model result as a definitive test, or replace a clinician. Ask concise follow-up questions only when needed. Mention urgent in-person care for severe or rapidly worsening symptoms. Do not claim to have reviewed records unless the user provided them in this chat. Keep answers calm and concise.';
     const conversation = [...history, { role: 'user', content: userContent }];
     const toGeminiParts = (content) => {
       if (typeof content === 'string') return [{ text: content }];
@@ -204,7 +290,7 @@ module.exports = function registerPatientMedicalAssistant({ app, requireRole, au
           ? content.filter((part) => part?.thought !== true && (part?.type === 'text' || typeof part?.text === 'string')).map((part) => part.text || '').join('\n')
           : '';
       if (!answer.trim()) return res.status(502).json({ error: 'The AI service returned an empty answer. Please try again.' });
-      return res.json({ answer: answer.trim().slice(0, 6000) });
+      return res.json({ answer: answer.trim().slice(0, 6000), visionPrediction: image ? (visionPrediction || { label: null, confidence: null }) : null });
     } catch (error) {
       const requestId = crypto.randomBytes(4).toString('hex');
       console.error(`Medical assistant request ${requestId} failed:`, error.name);

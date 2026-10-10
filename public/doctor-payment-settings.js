@@ -4,6 +4,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = form.querySelector('[data-doctor-qr-file]');
   const dataInput = form.querySelector('[data-doctor-qr-data]');
   const preview = form.querySelector('[data-doctor-qr-preview]');
+  const upiInput = form.querySelector('[name="upiId"]');
+  const verifyButton = form.querySelector('[data-verify-upi]');
+  const verificationMessage = form.querySelector('[data-upi-verification]');
+  verifyButton?.addEventListener('click', () => {
+    const valid = /^[A-Za-z0-9._-]{2,80}@[A-Za-z0-9.-]{2,40}$/.test(upiInput.value.trim());
+    verificationMessage.textContent = valid
+      ? 'UPI ID format looks valid. Account ownership has not been verified.'
+      : 'UPI ID format is invalid. Enter an ID like doctor@bank.';
+    verificationMessage.dataset.valid = String(valid);
+  });
   let readingFile = false;
   fileInput?.addEventListener('change', () => {
     const file = fileInput.files?.[0];

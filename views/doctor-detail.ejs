@@ -36,7 +36,7 @@
     <% if (onlineSchedule.length) { %>
       <div class="workflow-list">
         <% const onlineDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']; onlineSchedule.forEach((item) => { %>
-          <article class="workflow-card"><strong><%= onlineDays[Number(item.weekday)] %></strong><span><%= item.starts_at %>–<%= item.ends_at %> India time</span></article>
+          <article class="workflow-card"><strong><%= onlineDays[Number(item.weekday)] %></strong><span><%= item.starts_at %>–<%= item.ends_at %><% if(item.second_starts_at){ %> · <%= item.second_starts_at %>–<%= item.second_ends_at %><% } %> India time</span></article>
         <% }) %>
       </div>
     <% } else { %><p class="muted">The doctor has not published online consultation hours.</p><% } %>
